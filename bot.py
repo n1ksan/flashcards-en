@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -8,6 +9,7 @@ load_dotenv()
 
 BOT_TOKEN  = os.environ["BOT_TOKEN"]
 WEBAPP_URL = os.environ["WEBAPP_URL"]
+APP_VERSION = str(int(time.time()))
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -16,8 +18,10 @@ logging.basicConfig(
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    sep = '&' if '?' in WEBAPP_URL else '?'
+    url = f"{WEBAPP_URL}{sep}v={APP_VERSION}"
     keyboard = [
-        [InlineKeyboardButton("✦ Открыть Flashcards", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [InlineKeyboardButton("✦ Открыть Flashcards", web_app=WebAppInfo(url=url))],
     ]
     await update.message.reply_text(
         "👋 Привет!\n\nВыбери нужные наборы и начни изучение:",

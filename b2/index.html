@@ -63,7 +63,7 @@
   .card-front { background:var(--surface); }
   .card-back  { background:var(--surface); border-color:var(--accent); transform:rotateY(180deg); }
   .card-badge { position:absolute; top:12px; left:14px; font-size:10px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); background:var(--bg); padding:3px 8px; border-radius:100px; border:1px solid var(--border); }
-  .card-known-badge { position:absolute; top:12px; right:14px; font-size:10px; font-weight:700; color:var(--green); background:rgba(46,204,113,.12); border:1px solid var(--green); padding:3px 8px; border-radius:100px; }
+  .card-known-badge { position:absolute; top:12px; right:52px; font-size:10px; font-weight:700; color:var(--green); background:rgba(46,204,113,.12); border:1px solid var(--green); padding:3px 8px; border-radius:100px; }
   .card-hint { position:absolute; bottom:12px; font-size:10px; color:var(--muted); pointer-events:none; }
   .card-word { font-size:clamp(20px,5vw,34px); font-weight:700; text-align:center; line-height:1.2; }
   .card-front .card-word { color:var(--text); }
@@ -135,13 +135,36 @@
   .round-btn.primary   { background:var(--accent); color:var(--acc-t); }
   .round-btn.secondary { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
   .round-btn:active { transform:scale(.97); }
+
+  .back-btn { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:4px 8px; border-radius:8px; -webkit-tap-highlight-color:transparent; }
+  .back-btn:active { opacity:.6; }
+
+  @keyframes fadeInUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .ctx-btn {
+    position:absolute; top:10px; right:10px;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+    color:var(--muted); border-radius:8px; padding:4px 8px;
+    font-size:13px; cursor:pointer; z-index:5; transition:all .2s;
+    -webkit-tap-highlight-color:transparent; line-height:1;
+  }
+  .ctx-btn:active { transform:scale(.93); }
+  .ctx-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .ctx-sentence {
+    max-width:88%; font-size:12px; color:var(--muted); font-style:italic;
+    background:rgba(255,255,255,0.04); border-radius:8px; padding:7px 12px;
+    border-left:3px solid var(--accent); text-align:left; line-height:1.5;
+    animation:fadeInUp .18s ease;
+  }
 </style>
 </head>
 <body>
 <div id="loading"><div class="spinner"></div></div>
 
 <header>
-  <div class="logo">✦ Flashcards <span>B2 · 500 слов</span></div>
+  <button class="back-btn" onclick="location.href='../index.html'">‹</button>
+  <div class="logo">📚 B2 <span>500 слов</span></div>
   <div class="header-stats">
     <span style="color:var(--green)">✓ <strong id="hdr-known">0</strong></span>
     <span>/ <strong id="hdr-total">0</strong></span>
@@ -194,12 +217,16 @@
       <div class="card-face card-front">
         <div class="card-badge" id="card-cat">...</div>
         <div class="card-known-badge" id="card-known-badge" style="display:none">✓ Знаю</div>
+        <button class="ctx-btn" id="ctx-btn-front" onclick="toggleCtx(event,'front')" title="Пример в контексте">💬</button>
         <div class="card-word" id="card-front-word">—</div>
+        <div class="ctx-sentence" id="ctx-front" style="display:none"></div>
         <div class="card-hint">Нажмите чтобы перевернуть</div>
       </div>
       <div class="card-face card-back">
+        <button class="ctx-btn" id="ctx-btn-back" onclick="toggleCtx(event,'back')" title="Пример в контексте">💬</button>
         <div class="card-word" id="card-back-word">—</div>
         <div class="card-translation" id="card-back-trans"></div>
+        <div class="ctx-sentence" id="ctx-back" style="display:none"></div>
         <div class="card-hint">Нажмите чтобы перевернуть</div>
       </div>
     </div>
@@ -247,6 +274,518 @@ const storage = {
 };
 
 const CAT = { verb:"Глагол", noun:"Существ.", adj:"Прилаг.", adv:"Наречие", phrase:"Фраза" };
+
+const CONTEXT = {
+  // Verbs
+  "abandon":{"en":"She had to abandon the project.","ru":"Ей пришлось бросить проект."},
+  "accomplish":{"en":"We accomplished all our goals.","ru":"Мы достигли всех наших целей."},
+  "accumulate":{"en":"Dust accumulated on the shelves.","ru":"Пыль накапливалась на полках."},
+  "acknowledge":{"en":"He acknowledged his mistake.","ru":"Он признал свою ошибку."},
+  "acquire":{"en":"She acquired new skills quickly.","ru":"Она быстро приобрела новые навыки."},
+  "adapt":{"en":"Animals adapt to their environment.","ru":"Животные адаптируются к среде."},
+  "advocate":{"en":"She advocates for equal rights.","ru":"Она выступает за равные права."},
+  "affect":{"en":"Weather affects our mood.","ru":"Погода влияет на наше настроение."},
+  "allocate":{"en":"They allocated funds for research.","ru":"Они выделили средства на исследования."},
+  "analyse":{"en":"We need to analyse the data.","ru":"Нам нужно анализировать данные."},
+  "anticipate":{"en":"We did not anticipate this problem.","ru":"Мы не предвидели эту проблему."},
+  "assess":{"en":"The teacher assessed their progress.","ru":"Учитель оценил их прогресс."},
+  "assume":{"en":"Never assume you are correct.","ru":"Никогда не предполагай, что ты прав."},
+  "attain":{"en":"She attained her goal in time.","ru":"Она достигла своей цели вовремя."},
+  "attribute":{"en":"He attributed success to hard work.","ru":"Он приписывал успех упорному труду."},
+  "avoid":{"en":"Try to avoid unnecessary risks.","ru":"Старайся избегать лишних рисков."},
+  "benefit":{"en":"Everyone benefits from education.","ru":"Все извлекают пользу из образования."},
+  "cease":{"en":"The rain ceased at noon.","ru":"Дождь прекратился в полдень."},
+  "challenge":{"en":"She challenged the outdated rules.","ru":"Она оспаривала устаревшие правила."},
+  "cite":{"en":"He cited three clear examples.","ru":"Он привёл три чётких примера."},
+  "clarify":{"en":"Please clarify your answer.","ru":"Пожалуйста, уточни свой ответ."},
+  "classify":{"en":"Scientists classify species by traits.","ru":"Учёные классифицируют виды по признакам."},
+  "collaborate":{"en":"They collaborated on the project.","ru":"Они сотрудничали над проектом."},
+  "communicate":{"en":"It is vital to communicate clearly.","ru":"Важно ясно общаться."},
+  "concentrate":{"en":"She concentrated on her studies.","ru":"Она сосредоточилась на учёбе."},
+  "conclude":{"en":"We concluded the meeting early.","ru":"Мы завершили собрание досрочно."},
+  "conduct":{"en":"They conducted a detailed study.","ru":"Они провели детальное исследование."},
+  "confirm":{"en":"Please confirm your reservation.","ru":"Пожалуйста, подтвердите вашу бронь."},
+  "consider":{"en":"Consider all options carefully.","ru":"Рассмотри все варианты внимательно."},
+  "contribute":{"en":"Everyone should contribute to society.","ru":"Каждый должен вносить вклад в общество."},
+  "convince":{"en":"He convinced her to stay.","ru":"Он убедил её остаться."},
+  "cope":{"en":"She learned to cope with stress.","ru":"Она научилась справляться со стрессом."},
+  "correspond":{"en":"Results correspond to our theory.","ru":"Результаты соответствуют нашей теории."},
+  "decline":{"en":"Sales declined last quarter.","ru":"Продажи снизились в прошлом квартале."},
+  "define":{"en":"Define the key terms first.","ru":"Сначала определи ключевые термины."},
+  "demonstrate":{"en":"She demonstrated the process clearly.","ru":"Она чётко продемонстрировала процесс."},
+  "deny":{"en":"He denied all accusations.","ru":"Он отрицал все обвинения."},
+  "derive":{"en":"We derive energy from food.","ru":"Мы черпаем энергию из еды."},
+  "detect":{"en":"Doctors detected the illness early.","ru":"Врачи обнаружили болезнь рано."},
+  "determine":{"en":"Tests determine your skill level.","ru":"Тесты определяют уровень навыков."},
+  "distribute":{"en":"Aid was distributed fairly.","ru":"Помощь была распределена справедливо."},
+  "eliminate":{"en":"We must eliminate all errors.","ru":"Мы должны устранить все ошибки."},
+  "emerge":{"en":"A solution emerged from the debate.","ru":"Из дискуссии появилось решение."},
+  "enable":{"en":"Technology enables global communication.","ru":"Технологии делают возможным глобальное общение."},
+  "encounter":{"en":"We encountered many difficulties.","ru":"Мы столкнулись с многими трудностями."},
+  "enhance":{"en":"Exercise enhances mental health.","ru":"Упражнения улучшают психическое здоровье."},
+  "ensure":{"en":"Rules ensure everyone's safety.","ru":"Правила обеспечивают безопасность всех."},
+  "evaluate":{"en":"We evaluated each option carefully.","ru":"Мы тщательно оценили каждый вариант."},
+  "exceed":{"en":"Results exceeded expectations.","ru":"Результаты превысили ожидания."},
+  "exclude":{"en":"No one should be excluded.","ru":"Никто не должен быть исключён."},
+  "explore":{"en":"We explored several new ideas.","ru":"Мы исследовали несколько новых идей."},
+  "expose":{"en":"The report exposed serious problems.","ru":"Доклад разоблачил серьёзные проблемы."},
+  "facilitate":{"en":"Good tools facilitate learning.","ru":"Хорошие инструменты облегчают обучение."},
+  "forecast":{"en":"Experts forecast economic growth.","ru":"Эксперты прогнозируют экономический рост."},
+  "generate":{"en":"The project generated many ideas.","ru":"Проект породил много идей."},
+  "handle":{"en":"She handled the crisis well.","ru":"Она хорошо справилась с кризисом."},
+  "highlight":{"en":"The report highlighted key issues.","ru":"Доклад выделил ключевые вопросы."},
+  "identify":{"en":"We identified the main problem.","ru":"Мы определили главную проблему."},
+  "implement":{"en":"They implemented the new plan.","ru":"Они реализовали новый план."},
+  "imply":{"en":"His words implied a warning.","ru":"Его слова подразумевали предупреждение."},
+  "indicate":{"en":"Signs indicate a change is coming.","ru":"Знаки указывают на предстоящие перемены."},
+  "influence":{"en":"Parents greatly influence their children.","ru":"Родители сильно влияют на своих детей."},
+  "interpret":{"en":"She interpreted the data differently.","ru":"Она интерпретировала данные по-другому."},
+  "investigate":{"en":"Police are investigating the case.","ru":"Полиция расследует это дело."},
+  "involve":{"en":"The task involves careful planning.","ru":"Задача предполагает тщательное планирование."},
+  "justify":{"en":"Can you justify this decision?","ru":"Можешь ли ты обосновать это решение?"},
+  "launch":{"en":"They launched a new product.","ru":"Они запустили новый продукт."},
+  "limit":{"en":"Funding limits what we can do.","ru":"Финансирование ограничивает наши возможности."},
+  "link":{"en":"The study links diet to health.","ru":"Исследование связывает диету со здоровьем."},
+  "maintain":{"en":"We must maintain high standards.","ru":"Мы должны поддерживать высокие стандарты."},
+  "manage":{"en":"She managed a team of ten.","ru":"Она управляла командой из десяти человек."},
+  "measure":{"en":"We measured the room carefully.","ru":"Мы тщательно измерили комнату."},
+  "modify":{"en":"We modified the original plan.","ru":"Мы скорректировали первоначальный план."},
+  "monitor":{"en":"Doctors monitor patients closely.","ru":"Врачи внимательно наблюдают за пациентами."},
+  "motivate":{"en":"Praise motivates people to improve.","ru":"Похвала мотивирует людей совершенствоваться."},
+  "neglect":{"en":"Do not neglect your health.","ru":"Не пренебрегай своим здоровьем."},
+  "negotiate":{"en":"They negotiated a better deal.","ru":"Они договорились о более выгодной сделке."},
+  "observe":{"en":"Scientists observe animal behaviour.","ru":"Учёные наблюдают за поведением животных."},
+  "obtain":{"en":"She obtained a new degree.","ru":"Она получила новую учёную степень."},
+  "occur":{"en":"Accidents occur without warning.","ru":"Несчастные случаи происходят без предупреждения."},
+  "overcome":{"en":"She overcame many challenges.","ru":"Она преодолела многие трудности."},
+  "participate":{"en":"Everyone is invited to participate.","ru":"Все приглашены участвовать."},
+  "perceive":{"en":"We perceive the world differently.","ru":"Мы воспринимаем мир по-разному."},
+  "perform":{"en":"She performed well under pressure.","ru":"Она хорошо работала под давлением."},
+  "predict":{"en":"No one can predict the future.","ru":"Никто не может предсказать будущее."},
+  "preserve":{"en":"We must preserve our traditions.","ru":"Мы должны сохранять наши традиции."},
+  "prevent":{"en":"Vaccines prevent many diseases.","ru":"Вакцины предотвращают многие болезни."},
+  "promote":{"en":"Good sleep promotes better health.","ru":"Хороший сон способствует здоровью."},
+  "propose":{"en":"She proposed a new method.","ru":"Она предложила новый метод."},
+  "prove":{"en":"He proved his theory correct.","ru":"Он доказал правильность своей теории."},
+  "pursue":{"en":"Pursue your goals with passion.","ru":"Добивайся своих целей со страстью."},
+  "realize":{"en":"I realized my mistake too late.","ru":"Я осознал свою ошибку слишком поздно."},
+  "reduce":{"en":"We need to reduce carbon emissions.","ru":"Нам нужно сократить выбросы углерода."},
+  "refer":{"en":"Please refer to the manual.","ru":"Пожалуйста, обратись к руководству."},
+  "reflect":{"en":"The essay reflects her personal views.","ru":"Эссе отражает её личные взгляды."},
+  "reject":{"en":"The committee rejected the proposal.","ru":"Комитет отклонил предложение."},
+  "rely":{"en":"We rely on each other.","ru":"Мы полагаемся друг на друга."},
+  "replace":{"en":"New technology replaces old methods.","ru":"Новые технологии заменяют старые методы."},
+  "represent":{"en":"The flag represents the nation.","ru":"Флаг представляет нацию."},
+  "require":{"en":"The job requires strong skills.","ru":"Работа требует высокого уровня навыков."},
+  "resolve":{"en":"They resolved the conflict peacefully.","ru":"Они мирно урегулировали конфликт."},
+  "reveal":{"en":"The study revealed new data.","ru":"Исследование выявило новые данные."},
+  "seek":{"en":"She seeks to improve every day.","ru":"Она стремится улучшаться каждый день."},
+  "select":{"en":"Please select your answer.","ru":"Пожалуйста, выбери свой ответ."},
+  "solve":{"en":"We solved the problem together.","ru":"Мы решили проблему вместе."},
+  "suggest":{"en":"I suggest we take a break.","ru":"Я предлагаю сделать перерыв."},
+  "support":{"en":"Friends support each other.","ru":"Друзья поддерживают друг друга."},
+  "sustain":{"en":"We must sustain our environment.","ru":"Мы должны беречь окружающую среду."},
+  "tend":{"en":"People tend to follow habits.","ru":"Люди, как правило, следуют привычкам."},
+  "transfer":{"en":"She transferred to a new school.","ru":"Она перевелась в новую школу."},
+  "transform":{"en":"Exercise transforms your body.","ru":"Упражнения преобразуют твоё тело."},
+  "underline":{"en":"Underline the key words.","ru":"Подчеркни ключевые слова."},
+  "undertake":{"en":"They undertook a major renovation.","ru":"Они взялись за масштабный ремонт."},
+  "vary":{"en":"Results vary from person to person.","ru":"Результаты варьируются от человека к человеку."},
+  "verify":{"en":"Always verify your sources.","ru":"Всегда проверяй свои источники."},
+  "withdraw":{"en":"He withdrew money from the bank.","ru":"Он снял деньги в банке."},
+  "yield":{"en":"Hard work yields good results.","ru":"Упорный труд даёт хорошие результаты."},
+  "engage":{"en":"Teachers engage students with stories.","ru":"Учителя вовлекают учеников историями."},
+  // Nouns
+  "achievement":{"en":"This award recognizes his achievement.","ru":"Эта награда признаёт его достижение."},
+  "advantage":{"en":"Knowledge gives you an advantage.","ru":"Знания дают тебе преимущество."},
+  "analysis":{"en":"A deep analysis revealed new facts.","ru":"Глубокий анализ выявил новые факты."},
+  "approach":{"en":"Try a different approach to the problem.","ru":"Попробуй другой подход к проблеме."},
+  "argument":{"en":"Her argument was very persuasive.","ru":"Её аргумент был очень убедительным."},
+  "aspect":{"en":"Consider every aspect of the plan.","ru":"Рассмотри каждый аспект плана."},
+  "assessment":{"en":"The assessment showed good results.","ru":"Оценка показала хорошие результаты."},
+  "assumption":{"en":"That assumption turned out to be wrong.","ru":"Это предположение оказалось неверным."},
+  "attitude":{"en":"A positive attitude helps success.","ru":"Позитивное отношение помогает успеху."},
+  "authority":{"en":"She spoke with great authority.","ru":"Она говорила с большим авторитетом."},
+  "awareness":{"en":"Public awareness of climate grew.","ru":"Осведомлённость общества о климате выросла."},
+  "behaviour":{"en":"Good behaviour is expected here.","ru":"Здесь ожидается хорошее поведение."},
+  "benefit":{"en":"Exercise has many health benefits.","ru":"Упражнения приносят много пользы для здоровья."},
+  "capacity":{"en":"She has a great capacity for learning.","ru":"У неё большая способность к обучению."},
+  "characteristic":{"en":"Kindness is her best characteristic.","ru":"Доброта — её лучшая черта."},
+  "circumstance":{"en":"His circumstances made life difficult.","ru":"Его обстоятельства делали жизнь трудной."},
+  "commitment":{"en":"She showed strong commitment to work.","ru":"Она продемонстрировала сильную преданность работе."},
+  "community":{"en":"The community helped each other.","ru":"Сообщество помогало друг другу."},
+  "competition":{"en":"The competition was very fierce.","ru":"Конкуренция была очень жёсткой."},
+  "concept":{"en":"It is a simple but powerful concept.","ru":"Это простая, но мощная концепция."},
+  "conclusion":{"en":"We reached the same conclusion.","ru":"Мы пришли к одному выводу."},
+  "conflict":{"en":"The conflict was resolved quickly.","ru":"Конфликт был быстро урегулирован."},
+  "consequence":{"en":"Think about the consequences first.","ru":"Сначала подумай о последствиях."},
+  "consideration":{"en":"Give this careful consideration.","ru":"Рассмотри это внимательно."},
+  "context":{"en":"Always read words in context.","ru":"Всегда читай слова в контексте."},
+  "contribution":{"en":"Her contribution was invaluable.","ru":"Её вклад был неоценимым."},
+  "controversy":{"en":"The issue caused great controversy.","ru":"Вопрос вызвал большую полемику."},
+  "criticism":{"en":"She accepted the criticism well.","ru":"Она достойно приняла критику."},
+  "data":{"en":"We collected data for a year.","ru":"Мы собирали данные в течение года."},
+  "debate":{"en":"The debate lasted two hours.","ru":"Дебаты продолжались два часа."},
+  "decision":{"en":"It was a very difficult decision.","ru":"Это было очень трудное решение."},
+  "decline":{"en":"The company faced a slow decline.","ru":"Компания столкнулась с постепенным упадком."},
+  "degree":{"en":"She earned a science degree.","ru":"Она получила учёную степень в области науки."},
+  "demand":{"en":"Demand for the product rose quickly.","ru":"Спрос на продукт быстро вырос."},
+  "disadvantage":{"en":"The main disadvantage is cost.","ru":"Главный недостаток — стоимость."},
+  "discipline":{"en":"Discipline leads to long-term success.","ru":"Дисциплина ведёт к долгосрочному успеху."},
+  "distinction":{"en":"There is a clear distinction here.","ru":"Здесь есть чёткое различие."},
+  "diversity":{"en":"Diversity makes teams more creative.","ru":"Разнообразие делает команды более творческими."},
+  "economy":{"en":"The economy grew steadily last year.","ru":"Экономика стабильно росла в прошлом году."},
+  "effect":{"en":"The medicine had a strong effect.","ru":"Лекарство оказало сильный эффект."},
+  "element":{"en":"Trust is a key element of teamwork.","ru":"Доверие — ключевой элемент командной работы."},
+  "emphasis":{"en":"She placed great emphasis on detail.","ru":"Она делала большой акцент на деталях."},
+  "environment":{"en":"We must protect our environment.","ru":"Мы должны защищать окружающую среду."},
+  "evidence":{"en":"The evidence was clear and convincing.","ru":"Доказательства были ясными и убедительными."},
+  "expectation":{"en":"She exceeded all expectations.","ru":"Она превзошла все ожидания."},
+  "explanation":{"en":"He gave a clear explanation.","ru":"Он дал чёткое объяснение."},
+  "extent":{"en":"The extent of the damage surprised us.","ru":"Масштаб ущерба нас удивил."},
+  "factor":{"en":"Time is an important factor.","ru":"Время — важный фактор."},
+  "failure":{"en":"Failure is a step toward success.","ru":"Неудача — шаг к успеху."},
+  "freedom":{"en":"Freedom of speech is essential.","ru":"Свобода слова имеет большое значение."},
+  "function":{"en":"The function of this button is clear.","ru":"Функция этой кнопки понятна."},
+  "gap":{"en":"There is a gap between theory and practice.","ru":"Существует разрыв между теорией и практикой."},
+  "generation":{"en":"Each generation faces new challenges.","ru":"Каждое поколение сталкивается с новыми вызовами."},
+  "goal":{"en":"Set a clear goal every morning.","ru":"Ставь чёткую цель каждое утро."},
+  "growth":{"en":"Personal growth requires effort.","ru":"Личностный рост требует усилий."},
+  "hypothesis":{"en":"The scientist tested her hypothesis.","ru":"Учёная проверила свою гипотезу."},
+  "identity":{"en":"Language is part of our identity.","ru":"Язык — часть нашей идентичности."},
+  "impact":{"en":"The impact of the decision was huge.","ru":"Влияние этого решения было огромным."},
+  "implication":{"en":"The implication of this change is serious.","ru":"Значение этого изменения серьёзно."},
+  "improvement":{"en":"We noticed a clear improvement.","ru":"Мы заметили явное улучшение."},
+  "income":{"en":"Her income increased significantly.","ru":"Её доход значительно вырос."},
+  "independence":{"en":"Independence requires responsibility.","ru":"Независимость требует ответственности."},
+  "indicator":{"en":"Profit is a key business indicator.","ru":"Прибыль — ключевой бизнес-показатель."},
+  "infrastructure":{"en":"The city improved its infrastructure.","ru":"Город улучшил свою инфраструктуру."},
+  "initiative":{"en":"She took the initiative.","ru":"Она взяла инициативу в свои руки."},
+  "institution":{"en":"The university is a trusted institution.","ru":"Университет — надёжный институт."},
+  "integration":{"en":"Integration of systems saved time.","ru":"Интеграция систем сэкономила время."},
+  "interaction":{"en":"Positive interaction builds trust.","ru":"Позитивное взаимодействие укрепляет доверие."},
+  "interpretation":{"en":"Her interpretation was interesting.","ru":"Её интерпретация была интересной."},
+  "investigation":{"en":"The investigation took three months.","ru":"Расследование заняло три месяца."},
+  "involvement":{"en":"Community involvement is important.","ru":"Участие сообщества важно."},
+  "issue":{"en":"They discussed the issue openly.","ru":"Они открыто обсудили этот вопрос."},
+  "judgment":{"en":"Trust your own judgment.","ru":"Доверяй собственному суждению."},
+  "knowledge":{"en":"Knowledge is power.","ru":"Знание — сила."},
+  "lack":{"en":"A lack of sleep affects health.","ru":"Нехватка сна влияет на здоровье."},
+  "limitation":{"en":"Every system has a limitation.","ru":"У каждой системы есть ограничение."},
+  "majority":{"en":"The majority voted in favour.","ru":"Большинство проголосовало за."},
+  "mechanism":{"en":"The mechanism is simple to use.","ru":"Механизм прост в использовании."},
+  "method":{"en":"This method works well.","ru":"Этот метод хорошо работает."},
+  "minority":{"en":"The minority should be heard too.","ru":"Меньшинство тоже должно быть услышано."},
+  "motivation":{"en":"Motivation drives success.","ru":"Мотивация движет успехом."},
+  "network":{"en":"Build a strong professional network.","ru":"Создай прочную профессиональную сеть."},
+  "norm":{"en":"Honesty is a social norm.","ru":"Честность — социальная норма."},
+  "objective":{"en":"Our objective is to improve results.","ru":"Наша цель — улучшить результаты."},
+  "obligation":{"en":"She fulfilled her obligation.","ru":"Она выполнила своё обязательство."},
+  "opportunity":{"en":"Every challenge is an opportunity.","ru":"Каждый вызов — это возможность."},
+  "outcome":{"en":"The outcome was better than expected.","ru":"Результат оказался лучше, чем ожидалось."},
+  "output":{"en":"The factory increased its output.","ru":"Завод увеличил объём выпуска."},
+  "participation":{"en":"Participation in class is important.","ru":"Участие в занятиях важно."},
+  "pattern":{"en":"A clear pattern emerged from the data.","ru":"Из данных выявился чёткий шаблон."},
+  "percentage":{"en":"A large percentage agreed.","ru":"Большой процент согласился."},
+  "perspective":{"en":"Consider it from a different perspective.","ru":"Рассмотри это с другой перспективы."},
+  "phase":{"en":"We are in the final phase.","ru":"Мы находимся в финальной фазе."},
+  "phenomenon":{"en":"Climate change is a global phenomenon.","ru":"Изменение климата — глобальное явление."},
+  "policy":{"en":"The new policy improves safety.","ru":"Новая политика повышает безопасность."},
+  "population":{"en":"The population grew rapidly.","ru":"Население быстро росло."},
+  "potential":{"en":"She has great potential.","ru":"У неё огромный потенциал."},
+  "prediction":{"en":"The prediction proved correct.","ru":"Прогноз оказался верным."},
+  "priority":{"en":"Health should be your first priority.","ru":"Здоровье должно быть вашим первым приоритетом."},
+  "principle":{"en":"Follow your principles always.","ru":"Всегда следуй своим принципам."},
+  "procedure":{"en":"Follow the correct procedure.","ru":"Следуй правильной процедуре."},
+  "process":{"en":"Learning is a gradual process.","ru":"Обучение — постепенный процесс."},
+  "progress":{"en":"She made remarkable progress.","ru":"Она добилась замечательного прогресса."},
+  "proportion":{"en":"The proportion of students increased.","ru":"Доля студентов увеличилась."},
+  "proposal":{"en":"The proposal was accepted.","ru":"Предложение было принято."},
+  "purpose":{"en":"What is the purpose of this rule?","ru":"Какова цель этого правила?"},
+  "reaction":{"en":"Her reaction was unexpected.","ru":"Её реакция была неожиданной."},
+  "reform":{"en":"The reform changed the system.","ru":"Реформа изменила систему."},
+  "regulation":{"en":"Strict regulation protects consumers.","ru":"Строгое регулирование защищает потребителей."},
+  "relationship":{"en":"Good relationships build trust.","ru":"Хорошие отношения строят доверие."},
+  "requirement":{"en":"Meeting requirements takes effort.","ru":"Соответствие требованиям требует усилий."},
+  "resource":{"en":"Water is our most valuable resource.","ru":"Вода — наш самый ценный ресурс."},
+  "responsibility":{"en":"Take responsibility for your actions.","ru":"Берй ответственность за свои действия."},
+  "restriction":{"en":"There are restrictions on this road.","ru":"На этой дороге есть ограничения."},
+  "risk":{"en":"Taking risks can lead to growth.","ru":"Принятие рисков может привести к росту."},
+  "role":{"en":"She played a crucial role.","ru":"Она сыграла ключевую роль."},
+  "scale":{"en":"The scale of the problem was large.","ru":"Масштаб проблемы был велик."},
+  "sector":{"en":"The health sector needs investment.","ru":"Здравоохранение нуждается в инвестициях."},
+  "sequence":{"en":"Follow the sequence of steps.","ru":"Следуй последовательности шагов."},
+  "shift":{"en":"There was a major shift in policy.","ru":"Произошёл крупный сдвиг в политике."},
+  "significance":{"en":"The significance of this is clear.","ru":"Значимость этого очевидна."},
+  "situation":{"en":"The situation improved over time.","ru":"Ситуация улучшилась со временем."},
+  "skill":{"en":"Reading is an essential skill.","ru":"Чтение — важный навык."},
+  "solution":{"en":"She found an elegant solution.","ru":"Она нашла изящное решение."},
+  "source":{"en":"Books are a great source of knowledge.","ru":"Книги — отличный источник знаний."},
+  "standard":{"en":"Maintain high standards always.","ru":"Всегда поддерживай высокие стандарты."},
+  "statistics":{"en":"Statistics support this conclusion.","ru":"Статистика подтверждает этот вывод."},
+  "strategy":{"en":"She developed a winning strategy.","ru":"Она разработала выигрышную стратегию."},
+  "strength":{"en":"Her greatest strength is patience.","ru":"Её главная сила — терпение."},
+  "structure":{"en":"The structure of the essay is clear.","ru":"Структура эссе ясная."},
+  "tendency":{"en":"There is a tendency to avoid change.","ru":"Есть тенденция избегать перемен."},
+  "tension":{"en":"Tension grew between the teams.","ru":"Напряжение нарастало между командами."},
+  "theory":{"en":"His theory was proved by experiments.","ru":"Его теория была подтверждена экспериментами."},
+  "transformation":{"en":"Digital transformation changed everything.","ru":"Цифровая трансформация изменила всё."},
+  "transition":{"en":"The transition to the new system was smooth.","ru":"Переход на новую систему прошёл гладко."},
+  "trend":{"en":"Following trends can be profitable.","ru":"Следование тенденциям может быть прибыльным."},
+  "uncertainty":{"en":"Uncertainty makes planning difficult.","ru":"Неопределённость затрудняет планирование."},
+  "value":{"en":"Honesty is a core value.","ru":"Честность — основная ценность."},
+  "variation":{"en":"There was some variation in results.","ru":"В результатах была некоторая вариация."},
+  "weakness":{"en":"Admitting weakness takes courage.","ru":"Признание слабости требует мужества."},
+  // Adjectives
+  "abstract":{"en":"The painting was completely abstract.","ru":"Картина была полностью абстрактной."},
+  "accessible":{"en":"The website should be accessible.","ru":"Сайт должен быть доступным."},
+  "accurate":{"en":"The data must be accurate.","ru":"Данные должны быть точными."},
+  "adequate":{"en":"Is the salary adequate?","ru":"Является ли зарплата достаточной?"},
+  "aggressive":{"en":"An aggressive strategy carries risks.","ru":"Агрессивная стратегия несёт риски."},
+  "alternative":{"en":"Consider an alternative solution.","ru":"Рассмотри альтернативное решение."},
+  "ambitious":{"en":"She is highly ambitious.","ru":"Она очень амбициозна."},
+  "analytical":{"en":"His thinking is deeply analytical.","ru":"Его мышление глубоко аналитическое."},
+  "annual":{"en":"The annual report was positive.","ru":"Годовой отчёт был положительным."},
+  "anxious":{"en":"She was anxious before the exam.","ru":"Она нервничала перед экзаменом."},
+  "apparent":{"en":"The error was apparent immediately.","ru":"Ошибка была очевидна сразу."},
+  "appropriate":{"en":"Choose an appropriate response.","ru":"Выбери подходящий ответ."},
+  "approximate":{"en":"Give an approximate answer.","ru":"Дай приблизительный ответ."},
+  "arbitrary":{"en":"The decision seemed arbitrary.","ru":"Решение казалось произвольным."},
+  "artificial":{"en":"The flower was artificial.","ru":"Цветок был искусственным."},
+  "assertive":{"en":"Be assertive in negotiations.","ru":"Будь напористым на переговорах."},
+  "aware":{"en":"Be aware of your surroundings.","ru":"Будь осведомлён об окружающей обстановке."},
+  "balanced":{"en":"A balanced diet is important.","ru":"Сбалансированная диета важна."},
+  "beneficial":{"en":"Exercise is beneficial to health.","ru":"Упражнения полезны для здоровья."},
+  "broad":{"en":"She has a broad knowledge.","ru":"У неё широкие знания."},
+  "capable":{"en":"She is capable of great work.","ru":"Она способна на великую работу."},
+  "cautious":{"en":"Be cautious when making decisions.","ru":"Будь осторожен при принятии решений."},
+  "certain":{"en":"Are you certain about this?","ru":"Ты уверен в этом?"},
+  "challenging":{"en":"The task was challenging but rewarding.","ru":"Задача была сложной, но приятной."},
+  "chronic":{"en":"Chronic stress is dangerous.","ru":"Хронический стресс опасен."},
+  "collective":{"en":"This is a collective decision.","ru":"Это коллективное решение."},
+  "compelling":{"en":"The argument was compelling.","ru":"Аргумент был убедительным."},
+  "competitive":{"en":"The market is highly competitive.","ru":"Рынок очень конкурентный."},
+  "complex":{"en":"The problem is complex.","ru":"Проблема сложная."},
+  "comprehensive":{"en":"Give a comprehensive explanation.","ru":"Дай всестороннее объяснение."},
+  "considerable":{"en":"There was a considerable delay.","ru":"Была значительная задержка."},
+  "consistent":{"en":"Be consistent in your efforts.","ru":"Будь последовательным в усилиях."},
+  "contradictory":{"en":"The statements were contradictory.","ru":"Высказывания были противоречивыми."},
+  "controversial":{"en":"The topic is controversial.","ru":"Тема спорная."},
+  "convincing":{"en":"Her argument was very convincing.","ru":"Её аргумент был очень убедительным."},
+  "creative":{"en":"Creative thinking solves problems.","ru":"Творческое мышление решает проблемы."},
+  "critical":{"en":"Critical thinking is very valuable.","ru":"Критическое мышление очень ценно."},
+  "crucial":{"en":"This step is crucial.","ru":"Этот шаг крайне важен."},
+  "current":{"en":"Keep up with current events.","ru":"Следи за текущими событиями."},
+  "decisive":{"en":"A decisive leader inspires confidence.","ru":"Решительный лидер внушает уверенность."},
+  "dedicated":{"en":"She is dedicated to her work.","ru":"Она предана своей работе."},
+  "deliberate":{"en":"It was a deliberate choice.","ru":"Это был намеренный выбор."},
+  "dependent":{"en":"Children are dependent on parents.","ru":"Дети зависят от родителей."},
+  "determined":{"en":"She was determined to succeed.","ru":"Она была полна решимости добиться успеха."},
+  "digital":{"en":"We live in a digital world.","ru":"Мы живём в цифровом мире."},
+  "distinct":{"en":"There is a distinct difference.","ru":"Есть отчётливое различие."},
+  "diverse":{"en":"The team is diverse and creative.","ru":"Команда разнообразная и творческая."},
+  "dominant":{"en":"She played a dominant role.","ru":"Она играла доминирующую роль."},
+  "dynamic":{"en":"The city has a dynamic economy.","ru":"У города динамичная экономика."},
+  "economic":{"en":"Economic growth benefits everyone.","ru":"Экономический рост идёт на пользу всем."},
+  "effective":{"en":"The treatment was very effective.","ru":"Лечение было очень эффективным."},
+  "efficient":{"en":"An efficient system saves time.","ru":"Эффективная система экономит время."},
+  "emotional":{"en":"It was an emotional moment.","ru":"Это был эмоциональный момент."},
+  "equal":{"en":"Everyone deserves equal treatment.","ru":"Каждый заслуживает равного обращения."},
+  "ethical":{"en":"Ethical behaviour builds trust.","ru":"Этичное поведение строит доверие."},
+  "evident":{"en":"The problem was evident to all.","ru":"Проблема была очевидна всем."},
+  "excessive":{"en":"Excessive stress harms the body.","ru":"Чрезмерный стресс вредит организму."},
+  "exclusive":{"en":"Membership is exclusive and costly.","ru":"Членство эксклюзивное и дорогостоящее."},
+  "explicit":{"en":"Give explicit instructions.","ru":"Дай явные инструкции."},
+  "extensive":{"en":"She did extensive research.","ru":"Она провела обширное исследование."},
+  "extreme":{"en":"Extreme temperatures are dangerous.","ru":"Экстремальные температуры опасны."},
+  "fair":{"en":"A fair outcome was reached.","ru":"Был достигнут справедливый результат."},
+  "familiar":{"en":"The voice sounded familiar.","ru":"Голос казался знакомым."},
+  "feasible":{"en":"The plan seems feasible.","ru":"План кажется осуществимым."},
+  "fierce":{"en":"The competition was fierce.","ru":"Конкуренция была яростной."},
+  "financial":{"en":"Financial planning reduces stress.","ru":"Финансовое планирование снижает стресс."},
+  "flexible":{"en":"A flexible schedule helps productivity.","ru":"Гибкий график повышает продуктивность."},
+  "formal":{"en":"Wear formal clothes to the interview.","ru":"Надень формальную одежду на собеседование."},
+  "frequent":{"en":"Frequent exercise keeps you healthy.","ru":"Частые упражнения поддерживают здоровье."},
+  "fundamental":{"en":"This is a fundamental principle.","ru":"Это фундаментальный принцип."},
+  "genuine":{"en":"Her smile was genuine and warm.","ru":"Её улыбка была настоящей и тёплой."},
+  "global":{"en":"Climate change is a global issue.","ru":"Изменение климата — глобальная проблема."},
+  "gradual":{"en":"Progress was gradual but steady.","ru":"Прогресс был постепенным, но устойчивым."},
+  "grateful":{"en":"She was grateful for the support.","ru":"Она была благодарна за поддержку."},
+  "harsh":{"en":"The criticism was harsh but fair.","ru":"Критика была суровой, но справедливой."},
+  "ideal":{"en":"This is the ideal solution.","ru":"Это идеальное решение."},
+  "identical":{"en":"The two results were identical.","ru":"Два результата были идентичны."},
+  "implicit":{"en":"There was an implicit agreement.","ru":"Было неявное соглашение."},
+  "inevitable":{"en":"Change is inevitable.","ru":"Перемены неизбежны."},
+  "inferior":{"en":"The quality was inferior.","ru":"Качество было низким."},
+  "inherent":{"en":"There is an inherent risk.","ru":"Существует присущий риск."},
+  "initial":{"en":"The initial plan was changed.","ru":"Первоначальный план был изменён."},
+  "intellectual":{"en":"She has great intellectual ability.","ru":"У неё большие интеллектуальные способности."},
+  "intense":{"en":"The training was very intense.","ru":"Тренировка была очень интенсивной."},
+  "internal":{"en":"The internal structure is complex.","ru":"Внутренняя структура сложная."},
+  "isolated":{"en":"The village was isolated in winter.","ru":"Деревня была изолирована зимой."},
+  "limited":{"en":"Resources are always limited.","ru":"Ресурсы всегда ограничены."},
+  "logical":{"en":"The solution was logical.","ru":"Решение было логичным."},
+  "long-term":{"en":"Long-term planning is essential.","ru":"Долгосрочное планирование необходимо."},
+  "mainstream":{"en":"Pop music is mainstream culture.","ru":"Поп-музыка — общепринятая культура."},
+  "mature":{"en":"A mature response is always best.","ru":"Зрелый ответ всегда лучший."},
+  "meaningful":{"en":"Meaningful work brings satisfaction.","ru":"Значимая работа приносит удовлетворение."},
+  "moderate":{"en":"A moderate pace is sustainable.","ru":"Умеренный темп устойчив."},
+  "moral":{"en":"It was a moral dilemma.","ru":"Это была моральная дилемма."},
+  "mutual":{"en":"There was mutual respect.","ru":"Было взаимное уважение."},
+  "necessary":{"en":"Change is necessary for growth.","ru":"Изменения необходимы для роста."},
+  "neutral":{"en":"Try to remain neutral.","ru":"Постарайся оставаться нейтральным."},
+  "obvious":{"en":"The answer was obvious.","ru":"Ответ был очевидным."},
+  "ongoing":{"en":"The investigation is ongoing.","ru":"Расследование продолжается."},
+  "optional":{"en":"This module is optional.","ru":"Этот модуль необязательный."},
+  "overall":{"en":"The overall result was positive.","ru":"Общий результат был положительным."},
+  "partial":{"en":"We reached a partial agreement.","ru":"Мы достигли частичного соглашения."},
+  "particular":{"en":"She has a particular talent.","ru":"У неё особый талант."},
+  "passive":{"en":"A passive attitude holds you back.","ru":"Пассивное отношение сдерживает тебя."},
+  "persistent":{"en":"Be persistent and you will succeed.","ru":"Будь настойчивым и ты добьёшься успеха."},
+  "political":{"en":"Political decisions affect everyone.","ru":"Политические решения затрагивают всех."},
+  "positive":{"en":"Keep a positive attitude.","ru":"Сохраняй позитивное отношение."},
+  "practical":{"en":"Give practical examples.","ru":"Приводи практические примеры."},
+  "precise":{"en":"Be precise in your measurements.","ru":"Будь точен в своих измерениях."},
+  "predictable":{"en":"The outcome was predictable.","ru":"Результат был предсказуем."},
+  "primary":{"en":"This is our primary goal.","ru":"Это наша первичная цель."},
+  "productive":{"en":"A productive day feels rewarding.","ru":"Продуктивный день приносит удовлетворение."},
+  "profound":{"en":"The experience had a profound effect.","ru":"Опыт оказал глубокое воздействие."},
+  "progressive":{"en":"She holds progressive views.","ru":"Она придерживается прогрессивных взглядов."},
+  "prominent":{"en":"He is a prominent scientist.","ru":"Он видный учёный."},
+  "proportional":{"en":"The response should be proportional.","ru":"Ответ должен быть пропорциональным."},
+  "psychological":{"en":"Stress has psychological effects.","ru":"Стресс имеет психологические последствия."},
+  "rational":{"en":"Make a rational decision.","ru":"Прими рациональное решение."},
+  "realistic":{"en":"Set realistic expectations.","ru":"Ставь реалистичные ожидания."},
+  "relevant":{"en":"Use relevant examples.","ru":"Используй актуальные примеры."},
+  "reluctant":{"en":"She was reluctant to agree.","ru":"Она была не склонна соглашаться."},
+  "responsible":{"en":"Be responsible for your choices.","ru":"Несёт ответственность за свои выборы."},
+  "severe":{"en":"The punishment was severe.","ru":"Наказание было суровым."},
+  "significant":{"en":"A significant change was needed.","ru":"Требовалось значительное изменение."},
+  "simultaneous":{"en":"The two events were simultaneous.","ru":"Два события произошли одновременно."},
+  "specific":{"en":"Give specific examples.","ru":"Приводи конкретные примеры."},
+  "straightforward":{"en":"The instructions are straightforward.","ru":"Инструкции прямолинейны."},
+  "sufficient":{"en":"The time is sufficient.","ru":"Времени достаточно."},
+  "temporary":{"en":"This is a temporary solution.","ru":"Это временное решение."},
+  "thorough":{"en":"She conducted a thorough review.","ru":"Она провела тщательный обзор."},
+  "typical":{"en":"A typical day starts at seven.","ru":"Типичный день начинается в семь."},
+  "uncertain":{"en":"The future is uncertain.","ru":"Будущее неопределённо."},
+  "valid":{"en":"Is this argument valid?","ru":"Этот аргумент действителен?"},
+  "vast":{"en":"She had vast experience.","ru":"У неё был обширный опыт."},
+  "voluntary":{"en":"Participation is voluntary.","ru":"Участие добровольное."},
+  "widespread":{"en":"The problem is widespread.","ru":"Проблема широко распространена."},
+  // Adverbs
+  "accordingly":{"en":"She adjusted her plans accordingly.","ru":"Она соответственно скорректировала свои планы."},
+  "additionally":{"en":"Additionally, we need more data.","ru":"Дополнительно нам нужно больше данных."},
+  "actually":{"en":"It actually worked.","ru":"Это на самом деле сработало."},
+  "alternatively":{"en":"Alternatively, we can use email.","ru":"В качестве альтернативы можно использовать email."},
+  "approximately":{"en":"It costs approximately fifty euros.","ru":"Это стоит приблизительно пятьдесят евро."},
+  "broadly":{"en":"Broadly, the plan is good.","ru":"В широком смысле план хорош."},
+  "certainly":{"en":"Certainly, I can help you.","ru":"Конечно, я могу тебе помочь."},
+  "clearly":{"en":"She explained it clearly.","ru":"Она объяснила это ясно."},
+  "consequently":{"en":"Consequently, the plan changed.","ru":"Следовательно, план изменился."},
+  "considerably":{"en":"The price dropped considerably.","ru":"Цена значительно упала."},
+  "continuously":{"en":"She worked continuously for hours.","ru":"Она непрерывно работала часами."},
+  "currently":{"en":"She is currently studying.","ru":"В настоящее время она учится."},
+  "deliberately":{"en":"He deliberately avoided the topic.","ru":"Он намеренно избегал темы."},
+  "effectively":{"en":"The medicine worked effectively.","ru":"Лекарство действовало эффективно."},
+  "essentially":{"en":"It is essentially a simple idea.","ru":"По сути, это простая идея."},
+  "eventually":{"en":"Eventually, she succeeded.","ru":"В конечном счёте она добилась успеха."},
+  "evidently":{"en":"Evidently, the plan failed.","ru":"Очевидно, план провалился."},
+  "explicitly":{"en":"He explicitly stated the rules.","ru":"Он явно изложил правила."},
+  "extensively":{"en":"She travelled extensively.","ru":"Она много путешествовала."},
+  "extremely":{"en":"The task was extremely difficult.","ru":"Задача была крайне трудной."},
+  "fairly":{"en":"It was fairly straightforward.","ru":"Это было довольно просто."},
+  "formally":{"en":"The complaint was formally submitted.","ru":"Жалоба была официально подана."},
+  "frequently":{"en":"She frequently visits the library.","ru":"Она часто посещает библиотеку."},
+  "generally":{"en":"Generally, the results are good.","ru":"В целом результаты хорошие."},
+  "gradually":{"en":"Her skills improved gradually.","ru":"Её навыки постепенно улучшались."},
+  "largely":{"en":"The success was largely due to teamwork.","ru":"Успех был в основном благодаря командной работе."},
+  "likely":{"en":"It is likely to rain today.","ru":"Вероятно, сегодня будет дождь."},
+  "mainly":{"en":"She mainly works in the morning.","ru":"Главным образом она работает утром."},
+  "merely":{"en":"It was merely a suggestion.","ru":"Это было просто предложение."},
+  "mostly":{"en":"We mostly agreed on the plan.","ru":"Мы в основном согласились с планом."},
+  "mutually":{"en":"The decision was mutually beneficial.","ru":"Решение было взаимовыгодным."},
+  "necessarily":{"en":"More is not necessarily better.","ru":"Больше — не обязательно лучше."},
+  "notably":{"en":"Notably, she was the youngest.","ru":"Примечательно, что она была самой молодой."},
+  "obviously":{"en":"Obviously, he was disappointed.","ru":"Очевидно, он был разочарован."},
+  "occasionally":{"en":"She occasionally makes mistakes.","ru":"Иногда она делает ошибки."},
+  "particularly":{"en":"I particularly enjoyed the talk.","ru":"Мне особенно понравился доклад."},
+  "potentially":{"en":"The drug is potentially dangerous.","ru":"Препарат потенциально опасен."},
+  "previously":{"en":"She had previously worked there.","ru":"Ранее она работала там."},
+  "primarily":{"en":"She is primarily a teacher.","ru":"Прежде всего, она учитель."},
+  "probably":{"en":"It is probably the best option.","ru":"Вероятно, это лучший вариант."},
+  "rapidly":{"en":"Technology evolves rapidly.","ru":"Технологии развиваются быстро."},
+  "rather":{"en":"She is rather shy.","ru":"Она довольно скромная."},
+  "relatively":{"en":"The cost is relatively low.","ru":"Стоимость относительно низкая."},
+  "significantly":{"en":"Results improved significantly.","ru":"Результаты значительно улучшились."},
+  "specifically":{"en":"Specifically, I need more time.","ru":"Конкретно, мне нужно больше времени."},
+  "subsequently":{"en":"Subsequently, the plan was revised.","ru":"Впоследствии план был пересмотрен."},
+  "sufficiently":{"en":"She was sufficiently prepared.","ru":"Она была достаточно подготовлена."},
+  "typically":{"en":"She typically wakes early.","ru":"Обычно она встаёт рано."},
+  "ultimately":{"en":"Ultimately, it was the right choice.","ru":"В конечном счёте это был правильный выбор."},
+  "whereas":{"en":"She loves coffee, whereas he prefers tea.","ru":"Она любит кофе, тогда как он предпочитает чай."},
+  // Phrases
+  "as a result":{"en":"As a result, sales improved.","ru":"В результате продажи улучшились."},
+  "at the expense of":{"en":"Success came at the expense of health.","ru":"Успех пришёл за счёт здоровья."},
+  "be aware of":{"en":"Be aware of the risks.","ru":"Будь осведомлён о рисках."},
+  "be capable of":{"en":"She is capable of great things.","ru":"Она способна на великие дела."},
+  "be concerned about":{"en":"I am concerned about the delay.","ru":"Я беспокоюсь о задержке."},
+  "be in charge of":{"en":"She is in charge of the project.","ru":"Она отвечает за проект."},
+  "be likely to":{"en":"It is likely to rain tomorrow.","ru":"Завтра, вероятно, будет дождь."},
+  "be responsible for":{"en":"He is responsible for the team.","ru":"Он несёт ответственность за команду."},
+  "be subject to":{"en":"The plan is subject to approval.","ru":"План подлежит одобрению."},
+  "be supposed to":{"en":"You are supposed to arrive at nine.","ru":"Ты должен прибыть в девять."},
+  "bring about":{"en":"Change can bring about improvement.","ru":"Перемены могут вызвать улучшение."},
+  "by contrast":{"en":"By contrast, the first option was simple.","ru":"В отличие от этого, первый вариант был прост."},
+  "by means of":{"en":"She communicated by means of signs.","ru":"Она общалась посредством знаков."},
+  "carry out":{"en":"We carried out the experiment.","ru":"Мы выполнили эксперимент."},
+  "come to terms with":{"en":"She came to terms with the change.","ru":"Она смирилась с переменой."},
+  "come up with":{"en":"He came up with a great idea.","ru":"Он придумал отличную идею."},
+  "deal with":{"en":"How do you deal with stress?","ru":"Как ты справляешься со стрессом?"},
+  "depend on":{"en":"Success depends on effort.","ru":"Успех зависит от усилий."},
+  "draw a conclusion":{"en":"We drew a conclusion from the data.","ru":"Мы сделали вывод из данных."},
+  "due to":{"en":"Due to rain, the match was cancelled.","ru":"Из-за дождя матч был отменён."},
+  "face a challenge":{"en":"She faced a new challenge.","ru":"Она столкнулась с новым вызовом."},
+  "fall short of":{"en":"The results fell short of expectations.","ru":"Результаты не достигли ожиданий."},
+  "for instance":{"en":"For instance, consider this example.","ru":"Например, рассмотри этот пример."},
+  "give rise to":{"en":"Change gives rise to new ideas.","ru":"Перемены порождают новые идеи."},
+  "go along with":{"en":"I cannot go along with this plan.","ru":"Я не могу согласиться с этим планом."},
+  "in addition to":{"en":"In addition to her degree, she has experience.","ru":"В дополнение к её степени, у неё есть опыт."},
+  "in favour of":{"en":"She voted in favour of the plan.","ru":"Она проголосовала в пользу плана."},
+  "in relation to":{"en":"This is important in relation to health.","ru":"Это важно по отношению к здоровью."},
+  "in spite of":{"en":"In spite of the rain, we went out.","ru":"Несмотря на дождь, мы вышли."},
+  "in terms of":{"en":"In terms of cost, it is better.","ru":"С точки зрения стоимости, это лучше."},
+  "keep in mind":{"en":"Keep in mind the deadline.","ru":"Имей в виду крайний срок."},
+  "lead to":{"en":"Hard work leads to success.","ru":"Упорный труд приводит к успеху."},
+  "look into":{"en":"We will look into the problem.","ru":"Мы расследуем проблему."},
+  "make a difference":{"en":"Small actions make a difference.","ru":"Маленькие действия имеют значение."},
+  "make an effort":{"en":"Make an effort every day.","ru":"Прилагай усилия каждый день."},
+  "make use of":{"en":"Make use of every opportunity.","ru":"Используй каждую возможность."},
+  "on behalf of":{"en":"She spoke on behalf of the team.","ru":"Она говорила от имени команды."},
+  "on the contrary":{"en":"On the contrary, it was easy.","ru":"Напротив, это было легко."},
+  "on the grounds of":{"en":"He was dismissed on the grounds of misconduct.","ru":"Его уволили на основании проступка."},
+  "on the other hand":{"en":"On the other hand, it is expensive.","ru":"С другой стороны, это дорого."},
+  "overcome obstacles":{"en":"She overcame many obstacles.","ru":"Она преодолела много препятствий."},
+  "point of view":{"en":"From my point of view, it is wrong.","ru":"С моей точки зрения, это неправильно."},
+  "put into practice":{"en":"Put the theory into practice.","ru":"Примени теорию на практике."},
+  "raise awareness":{"en":"The campaign raised awareness.","ru":"Кампания повысила осведомлённость."},
+  "reach a conclusion":{"en":"We reached a conclusion.","ru":"Мы пришли к выводу."},
+  "regardless of":{"en":"She continued regardless of the risk.","ru":"Она продолжала независимо от риска."},
+  "result in":{"en":"The effort resulted in success.","ru":"Усилие привело к успеху."},
+  "set a goal":{"en":"Set a goal and pursue it.","ru":"Поставь цель и добивайся её."},
+  "shed light on":{"en":"Research shed light on the problem.","ru":"Исследование пролило свет на проблему."},
+  "so as to":{"en":"She studied so as to improve.","ru":"Она учились, чтобы улучшиться."},
+  "take advantage of":{"en":"Take advantage of this opportunity.","ru":"Воспользуйся этой возможностью."},
+  "take into account":{"en":"Take all factors into account.","ru":"Прими во внимание все факторы."},
+  "take responsibility for":{"en":"Take responsibility for your actions.","ru":"Возьми ответственность за свои действия."},
+  "to a certain extent":{"en":"To a certain extent, she is right.","ru":"В определённой мере она права."},
+  "to be on the safe side":{"en":"Take notes to be on the safe side.","ru":"Делай заметки на всякий случай."},
+  "to sum up":{"en":"To sum up, the plan is solid.","ru":"Подводя итог, план надёжный."},
+  "turn out":{"en":"It turned out to be a mistake.","ru":"Это оказалось ошибкой."},
+  "with regard to":{"en":"With regard to costs, we must cut.","ru":"Относительно расходов, мы должны сократить."},
+  "with respect to":{"en":"With respect to quality, it is excellent.","ru":"По отношению к качеству, это отлично."},
+  "work out":{"en":"The plan worked out perfectly.","ru":"План сработал отлично."},
+};
 
 const WORDS = [
   // ── VERBS (120) ───────────────────────────────────────────────────
@@ -764,6 +1303,41 @@ const WORDS = [
   {en:"work out",                 ru:"разрабатывать, получаться",        cat:"phrase"},
 ];
 
+// ── CONTEXT ──────────────────────────────────────────────────────────
+let ctxVisible = { front: false, back: false };
+
+function resetCtx() {
+  ['front','back'].forEach(side => {
+    const el = document.getElementById(`ctx-${side}`);
+    const btn = document.getElementById(`ctx-btn-${side}`);
+    if (el) el.style.display = 'none';
+    if (btn) btn.classList.remove('active');
+    ctxVisible[side] = false;
+  });
+}
+
+function toggleCtx(e, side) {
+  e.stopPropagation();
+  if (!deck.length) return;
+  const w = deck[currentIdx];
+  const ctx = CONTEXT[w.en] || {};
+  const el = document.getElementById(`ctx-${side}`);
+  const btn = document.getElementById(`ctx-btn-${side}`);
+  if (ctxVisible[side]) {
+    el.style.display = 'none';
+    btn.classList.remove('active');
+    ctxVisible[side] = false;
+  } else {
+    const sentence = side === 'front'
+      ? (showEnFirst ? ctx.en : ctx.ru)
+      : (showEnFirst ? ctx.ru : ctx.en);
+    el.textContent = sentence || '—';
+    el.style.display = 'block';
+    btn.classList.add('active');
+    ctxVisible[side] = true;
+  }
+}
+
 // ── STATE ────────────────────────────────────────────────────────────
 let deck=[], currentIdx=0, isFlipped=false, showEnFirst=true;
 let currentMode='cards', currentCategory='all';
@@ -786,6 +1360,7 @@ function buildDeck(){
   else if(currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
   deck=[...src]; currentIdx=0; isFlipped=false;
   document.getElementById('card-wrapper').classList.remove('flipped');
+  resetCtx();
   renderCard(); updateStats();
 }
 
@@ -825,6 +1400,7 @@ function navigate(dir){
   if(next<0||next>=deck.length) return;
   currentIdx=next; isFlipped=false;
   document.getElementById('card-wrapper').classList.remove('flipped');
+  resetCtx();
   renderCard();
 }
 
@@ -842,6 +1418,7 @@ function shuffleDeck(){
   for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
   currentIdx=0; isFlipped=false;
   document.getElementById('card-wrapper').classList.remove('flipped');
+  resetCtx();
   renderCard(); showToast('🔀 Перемешано!');
 }
 
@@ -849,6 +1426,7 @@ function toggleLang(){
   showEnFirst=!showEnFirst;
   document.getElementById('btn-lang').textContent=showEnFirst?'🔄 Рус → Англ':'🔄 Англ → Рус';
   isFlipped=false; document.getElementById('card-wrapper').classList.remove('flipped');
+  resetCtx();
   renderCard();
 }
 
