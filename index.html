@@ -8,6 +8,7 @@
 <!-- Word data -->
 <script src="data-thematic.js"></script>
 <script src="data-b2.js"></script>
+<script src="data-idioms.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -47,8 +48,10 @@
   .folder-icon { width:48px; height:48px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
   .folder-icon.blue   { background:rgba(79,110,247,.15); }
   .folder-icon.purple { background:rgba(155,89,182,.15); }
+  .folder-icon.green  { background:rgba(46,204,113,.15); }
   .folder-card.selected .folder-icon.blue   { background:rgba(79,110,247,.25); }
   .folder-card.selected .folder-icon.purple { background:rgba(155,89,182,.25); }
+  .folder-card.selected .folder-icon.green  { background:rgba(46,204,113,.25); }
   .folder-info { flex:1; min-width:0; }
   .folder-name { font-size:15px; font-weight:700; margin-bottom:3px; }
   .folder-meta { font-size:12px; color:var(--muted); }
@@ -226,6 +229,19 @@
       <div class="check-circle" id="chk-b2">✓</div>
     </div>
 
+    <div class="folder-card selected" id="card-idioms" onclick="toggleSelect('idioms')">
+      <div class="folder-icon green">💬</div>
+      <div class="folder-info">
+        <div class="folder-name">Устойчивые выражения</div>
+        <div class="folder-meta">A2–B1 · популярные идиомы</div>
+        <div class="folder-stats">
+          <span class="folder-stat" id="count-idioms">...</span>
+          <span class="folder-stat" id="prog-idioms">...</span>
+        </div>
+      </div>
+      <div class="check-circle" id="chk-idioms">✓</div>
+    </div>
+
     <div class="hint-text">Выберите наборы и нажмите «Карточки» внизу</div>
   </div>
 </div>
@@ -382,14 +398,16 @@ const storage = {
 
 // ── HOME ──────────────────────────────────────────────────────────────────────
 const SETS_META = {
-  thematic: { count: (window.WORDS_THEMATIC||[]).length, storageKey: 'learned',    label: '🎨 Тем.' },
-  b2:       { count: (window.WORDS_B2||[]).length,       storageKey: 'b2_learned', label: '📚 B2'  },
+  thematic: { count: (window.WORDS_THEMATIC||[]).length, storageKey: 'learned',        label: '🎨 Тем.'    },
+  b2:       { count: (window.WORDS_B2||[]).length,       storageKey: 'b2_learned',     label: '📚 B2'      },
+  idioms:   { count: (window.WORDS_IDIOMS||[]).length,   storageKey: 'idioms_learned', label: '💬 Идиомы'  },
 };
 
 // Fill in word counts on folder cards
 document.getElementById('count-thematic').textContent = SETS_META.thematic.count + ' слов';
 document.getElementById('count-b2').textContent       = SETS_META.b2.count + ' слов';
-const selected = new Set(['thematic', 'b2']);
+document.getElementById('count-idioms').textContent   = SETS_META.idioms.count + ' выражений';
+const selected = new Set(['thematic', 'b2', 'idioms']);
 updateHomeUI();
 
 function toggleSelect(id) {
@@ -426,6 +444,7 @@ function loadHomeProgress(id) {
 
 loadHomeProgress('thematic');
 loadHomeProgress('b2');
+loadHomeProgress('idioms');
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 let currentTab = 'folders';
@@ -443,7 +462,7 @@ function switchTab(tab) {
   document.getElementById(`nav-${tab}`).classList.add('active');
   if (tab === 'folders') {
     showView('folders');
-    ['thematic','b2'].forEach(id => {
+    ['thematic','b2','idioms'].forEach(id => {
       const el = document.getElementById(`prog-${id}`);
       el.textContent = '...'; el.className = 'folder-stat';
       loadHomeProgress(id);
@@ -478,8 +497,9 @@ function renderStats(results) {
   const totalPct     = totalWords ? Math.round((totalLearned / totalWords) * 100) : 0;
 
   const setMeta = {
-    thematic: { name:'Тематический набор', icon:'🎨' },
-    b2:       { name:'B2 Словарь',          icon:'📚' },
+    thematic: { name:'Тематический набор',     icon:'🎨' },
+    b2:       { name:'B2 Словарь',              icon:'📚' },
+    idioms:   { name:'Устойчивые выражения',   icon:'💬' },
   };
 
   let html = `
@@ -522,6 +542,7 @@ function startStudy() {
   WORDS = [];
   if (selected.has('thematic')) WORDS = WORDS.concat(window.WORDS_THEMATIC || []);
   if (selected.has('b2'))       WORDS = WORDS.concat(window.WORDS_B2 || []);
+  if (selected.has('idioms'))   WORDS = WORDS.concat(window.WORDS_IDIOMS || []);
 
   // Title
   const labels = sets.map(s => SETS_META[s].label);
@@ -552,7 +573,7 @@ function startStudy() {
 }
 
 // ── STUDY ─────────────────────────────────────────────────────────────────────
-const CAT = { adj_adv:"Прил./Нар.", noun:"Существ.", verb:"Глагол", adj:"Прилаг.", adv:"Наречие", phrase:"Фраза" };
+const CAT = { adj_adv:"Прил./Нар.", noun:"Существ.", verb:"Глагол", adj:"Прилаг.", adv:"Наречие", phrase:"Фраза", everyday:"Повседневные", feelings:"Чувства", time:"Время и деньги", effort:"Усилия и учёба" };
 
 let WORDS = [];
 let currentStorageKey = 'all_learned';
