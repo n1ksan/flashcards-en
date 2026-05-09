@@ -5,11 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
 <title>Flashcards</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Word data -->
-<script src="data-thematic.js"></script>
-<script src="data-b2.js"></script>
-<script src="data-idioms.js"></script>
-<script src="data-grammar.js"></script>
+<!-- Word data: load with cache-busting ?v= matching the HTML URL -->
+<script>
+(function () {
+  var v = new URLSearchParams(location.search).get('v') || '';
+  var suffix = v ? '?v=' + encodeURIComponent(v) : '';
+  var files = ['data-thematic.js', 'data-b2.js', 'data-idioms.js', 'data-grammar.js'];
+  for (var i = 0; i < files.length; i++) {
+    document.write('<script src="' + files[i] + suffix + '"><\/script>');
+  }
+})();
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
