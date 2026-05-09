@@ -116,6 +116,25 @@
   @keyframes spin { to { transform:rotate(360deg); } }
 
   @media(max-width:480px) { .quiz-options { grid-template-columns:1fr; } .card-wrapper { padding-bottom:65%; } }
+
+  /* ── ROUNDS ── */
+  .round-banner { width:100%; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:14px; }
+  .round-label { font-size:14px; font-weight:700; color:var(--accent); }
+  .round-progress-text { font-size:12px; color:var(--muted); }
+  .round-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px; backdrop-filter:blur(4px); }
+  .round-summary { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:32px 24px; width:100%; max-width:360px; display:flex; flex-direction:column; align-items:center; gap:20px; box-shadow:var(--shadow); }
+  .round-emoji { font-size:52px; line-height:1; }
+  .round-summary h2 { font-size:20px; font-weight:700; text-align:center; }
+  .round-summary p { font-size:14px; color:var(--muted); text-align:center; line-height:1.5; }
+  .round-stats { display:flex; gap:16px; width:100%; }
+  .rstat { flex:1; text-align:center; background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:16px 8px; }
+  .rstat .rv { font-size:32px; font-weight:700; display:block; }
+  .rstat .rl { font-size:11px; color:var(--muted); margin-top:4px; }
+  .rstat.green .rv { color:var(--green); } .rstat.red .rv { color:var(--red); }
+  .round-btn { width:100%; padding:14px; border-radius:14px; border:none; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+  .round-btn.primary   { background:var(--accent); color:var(--acc-t); }
+  .round-btn.secondary { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .round-btn:active { transform:scale(.97); }
 </style>
 </head>
 <body>
@@ -138,8 +157,15 @@
 
   <div class="mode-tabs">
     <div class="mode-tab active" onclick="setMode('cards')">🃏 Карточки</div>
+    <div class="mode-tab" onclick="setMode('rounds')">📖 Раунды</div>
     <div class="mode-tab" onclick="setMode('quiz')">🧠 Тест</div>
     <div class="mode-tab" onclick="setMode('list')">📋 Список</div>
+  </div>
+
+  <!-- Round banner -->
+  <div class="round-banner" id="round-banner" style="display:none">
+    <div class="round-label" id="round-label">📖 Раунд 1</div>
+    <div class="round-progress-text" id="round-progress-text">0 / 0</div>
   </div>
 
   <div class="tabs">
@@ -186,8 +212,8 @@
   </div>
 
   <div class="mark-row" id="mark-row">
-    <button class="mark-btn unknown" onclick="markCard(false)">✗ Не знаю</button>
-    <button class="mark-btn known"   onclick="markCard(true)">✓ Знаю</button>
+    <button class="mark-btn unknown" onclick="onMarkCard(false)">✗ Не знаю</button>
+    <button class="mark-btn known"   onclick="onMarkCard(true)">✓ Знаю</button>
   </div>
 
   <div class="quiz-section" id="quiz-section">
@@ -841,13 +867,22 @@ function setCategory(cat){
 }
 
 function setMode(mode){
-  currentMode=mode;
-  document.querySelectorAll('.mode-tab').forEach((el,i)=>el.classList.toggle('active',['cards','quiz','list'][i]===mode));
-  ['card-scene','nav-row','mark-row','card-progress','card-controls'].forEach(id=>{ document.getElementById(id).style.display=mode==='cards'?'':'none'; });
+  currentMode=mode; inRounds=false;
+  document.getElementById('round-overlay').style.display='none';
+  document.querySelectorAll('.mode-tab').forEach((el,i)=>el.classList.toggle('active',['cards','rounds','quiz','list'][i]===mode));
+  const isCard=mode==='cards'||mode==='rounds';
+  document.getElementById('card-scene').style.display=isCard?'':'none';
+  document.getElementById('mark-row').style.display=isCard?'':'none';
+  document.getElementById('card-progress').style.display=isCard?'':'none';
+  document.getElementById('nav-row').style.display=mode==='cards'?'':'none';
+  document.getElementById('card-controls').style.display=mode==='cards'?'':'none';
+  document.getElementById('round-banner').style.display=mode==='rounds'?'flex':'none';
   document.getElementById('quiz-section').classList.toggle('active',mode==='quiz');
   document.getElementById('list-section').classList.toggle('active',mode==='list');
   if(mode==='quiz') initQuiz();
   if(mode==='list') renderList();
+  if(mode==='rounds') startRounds();
+  if(mode==='cards') renderCard();
 }
 
 function getQuizPool(){
@@ -903,6 +938,78 @@ function updateHeaderStats(){
 let toastTimer;
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
 
+// ── ROUNDS ───────────────────────────────────────────────────────────
+let inRounds=false, roundNumber=1, roundDeck=[], roundPos=0, roundUnknown=[];
+
+function startRounds(){
+  document.getElementById('round-overlay').style.display='none';
+  let src=WORDS;
+  if(currentCategory==='unknown') src=WORDS.filter(w=>!learnedSet.has(w.en));
+  else if(currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
+  if(!src.length){ showToast('Нет слов для изучения'); return; }
+  roundDeck=[...src].sort(()=>Math.random()-.5);
+  roundPos=0; roundNumber=1; roundUnknown=[]; inRounds=true;
+  showRoundCard();
+}
+
+function showRoundCard(){
+  if(roundPos>=roundDeck.length){ showRoundSummary(); return; }
+  const w=roundDeck[roundPos];
+  isFlipped=false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  document.getElementById('card-front-word').textContent=showEnFirst?w.en:w.ru;
+  document.getElementById('card-back-word').textContent=showEnFirst?w.ru:w.en;
+  document.getElementById('card-back-trans').textContent='';
+  document.getElementById('card-cat').textContent=CAT[w.cat]||w.cat;
+  document.getElementById('card-known-badge').style.display='none';
+  const pos=roundPos+1,total=roundDeck.length;
+  document.getElementById('round-label').textContent=`📖 Раунд ${roundNumber}`;
+  document.getElementById('round-progress-text').textContent=`${pos} / ${total}`;
+  document.getElementById('progress-fill').style.width=`${(pos/total)*100}%`;
+  document.getElementById('progress-label').textContent=`${pos} / ${total}`;
+  updateHeaderStats();
+}
+
+function onMarkCard(isKnown){ if(inRounds) markRoundCard(isKnown); else markCard(isKnown); }
+
+function markRoundCard(isKnown){
+  if(!roundDeck.length) return;
+  const w=roundDeck[roundPos];
+  if(isKnown) learnedSet.add(w.en);
+  else{ roundUnknown.push(w); learnedSet.delete(w.en); }
+  saveProgress(); updateStats();
+  if(tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown?'success':'warning');
+  roundPos++;
+  setTimeout(showRoundCard,250);
+}
+
+function showRoundSummary(){
+  const known=roundDeck.length-roundUnknown.length, unknown=roundUnknown.length, allDone=unknown===0;
+  document.getElementById('round-emoji').textContent=allDone?'🎉':'✅';
+  document.getElementById('round-title').textContent=allDone?'Все слова изучены!':`Раунд ${roundNumber} завершён!`;
+  document.getElementById('round-desc').textContent=allDone
+    ?'Отличная работа! Цикл начнётся заново.'
+    :`В следующем раунде ${unknown} ${plural(unknown,'слово','слова','слов')} для повторения.`;
+  document.getElementById('rs-known').textContent=known;
+  document.getElementById('rs-unknown').textContent=unknown;
+  document.getElementById('round-next-btn').style.display=allDone?'none':'';
+  document.getElementById('round-overlay').style.display='flex';
+}
+
+function nextRound(){
+  roundDeck=[...roundUnknown].sort(()=>Math.random()-.5);
+  roundPos=0; roundNumber++; roundUnknown=[];
+  document.getElementById('round-overlay').style.display='none';
+  showRoundCard();
+}
+
+function plural(n,one,few,many){
+  const m10=n%10,m100=n%100;
+  if(m10===1&&m100!==11) return one;
+  if(m10>=2&&m10<=4&&(m100<10||m100>=20)) return few;
+  return many;
+}
+
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   if(currentMode==='cards'){
@@ -912,8 +1019,29 @@ document.addEventListener('keydown',e=>{
     if(e.key==='1') markCard(false);
     if(e.key==='2') markCard(true);
   }
+  if(currentMode==='rounds'){
+    if(e.key===' '||e.key==='Enter'){ e.preventDefault(); flipCard(); }
+    if(e.key==='1') markRoundCard(false);
+    if(e.key==='2') markRoundCard(true);
+  }
   if(currentMode==='quiz'&&(e.key==='Enter'||e.key==='ArrowRight')) nextQuiz();
 });
 </script>
+
+<!-- Round summary overlay -->
+<div class="round-overlay" id="round-overlay" style="display:none">
+  <div class="round-summary">
+    <div class="round-emoji" id="round-emoji">✅</div>
+    <h2 id="round-title">Раунд завершён!</h2>
+    <p id="round-desc"></p>
+    <div class="round-stats">
+      <div class="rstat green"><span class="rv" id="rs-known">0</span><div class="rl">Знаю</div></div>
+      <div class="rstat red"><span class="rv" id="rs-unknown">0</span><div class="rl">Не знаю</div></div>
+    </div>
+    <button class="round-btn primary" id="round-next-btn" onclick="nextRound()">→ Следующий раунд</button>
+    <button class="round-btn secondary" onclick="startRounds()">↺ Начать заново</button>
+  </div>
+</div>
+
 </body>
 </html>
