@@ -5,606 +5,352 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
 <title>Flashcards</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- Word data -->
+<script src="data-thematic.js"></script>
+<script src="data-b2.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg:       var(--tg-theme-bg-color, #0f1117);
-    --surface:  var(--tg-theme-secondary-bg-color, #1a1d27);
-    --text:     var(--tg-theme-text-color, #e8eaf6);
-    --muted:    var(--tg-theme-hint-color, #7b82b0);
-    --accent:   var(--tg-theme-button-color, #4f6ef7);
-    --accent-t: var(--tg-theme-button-text-color, #ffffff);
-    --link:     var(--tg-theme-link-color, #5e97f6);
-    --green:    #2ecc71;
-    --red:      #e74c3c;
-    --yellow:   #f39c12;
-    --border:   rgba(128,128,128,0.2);
-    --radius:   16px;
-    --shadow:   0 4px 24px rgba(0,0,0,0.25);
+    --bg:      var(--tg-theme-bg-color, #0f1117);
+    --surface: var(--tg-theme-secondary-bg-color, #1a1d27);
+    --text:    var(--tg-theme-text-color, #e8eaf6);
+    --muted:   var(--tg-theme-hint-color, #7b82b0);
+    --accent:  var(--tg-theme-button-color, #4f6ef7);
+    --acc-t:   var(--tg-theme-button-text-color, #ffffff);
+    --link:    var(--tg-theme-link-color, #5e97f6);
+    --green:   #2ecc71; --red: #e74c3c; --yellow: #f39c12;
+    --border:  rgba(128,128,128,0.2);
+    --radius:  16px; --shadow: 0 4px 24px rgba(0,0,0,0.25);
   }
+  html,body { height:100%; overscroll-behavior:none; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+  @keyframes spin    { to { transform:rotate(360deg); } }
+  @keyframes fadeInUp{ from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 
-  html, body {
-    height: 100%;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body {
-    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+  /* ── VIEWS ── */
+  #view-home  { width:100%; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding-bottom:0; }
+  #view-study { width:100%; min-height:100vh; display:none; flex-direction:column; align-items:center; }
 
   /* ── HEADER ── */
-  header {
-    width: 100%;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+  header { width:100%; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
+  .logo { font-size:16px; font-weight:700; color:var(--accent); }
+  .header-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
+  .header-stats strong { color:var(--text); }
 
-  .logo {
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--accent);
-  }
+  /* ── HOME ── */
+  .home-main { width:100%; max-width:600px; padding:20px 16px 90px; display:flex; flex-direction:column; gap:12px; }
+  .section-title { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
 
-  .header-stats {
-    display: flex;
-    gap: 14px;
-    font-size: 12px;
-    color: var(--muted);
-  }
+  .folder-card { background:var(--surface); border:2px solid var(--border); border-radius:var(--radius); padding:17px 15px; display:flex; align-items:center; gap:13px; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+  .folder-card:active { transform:scale(.98); }
+  .folder-card.selected { border-color:var(--accent); background:rgba(79,110,247,.08); }
+  .folder-icon { width:48px; height:48px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+  .folder-icon.blue   { background:rgba(79,110,247,.15); }
+  .folder-icon.purple { background:rgba(155,89,182,.15); }
+  .folder-card.selected .folder-icon.blue   { background:rgba(79,110,247,.25); }
+  .folder-card.selected .folder-icon.purple { background:rgba(155,89,182,.25); }
+  .folder-info { flex:1; min-width:0; }
+  .folder-name { font-size:15px; font-weight:700; margin-bottom:3px; }
+  .folder-meta { font-size:12px; color:var(--muted); }
+  .folder-stats { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+  .folder-stat { font-size:11px; color:var(--muted); background:var(--bg); border:1px solid var(--border); border-radius:100px; padding:2px 8px; }
+  .folder-stat.green { color:var(--green); border-color:rgba(46,204,113,.3); background:rgba(46,204,113,.08); }
+  .check-circle { width:26px; height:26px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:transparent; flex-shrink:0; transition:all .2s; background:var(--bg); }
+  .folder-card.selected .check-circle { background:var(--accent); border-color:var(--accent); color:#fff; }
 
-  .header-stats strong { color: var(--text); }
+  .hint-text { text-align:center; font-size:12px; color:var(--muted); }
+  /* ── BOTTOM NAV ── */
+  #bottom-nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:var(--surface); border-top:1px solid var(--border); z-index:200; padding-bottom:max(0px,env(safe-area-inset-bottom)); }
+  .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 4px 8px; border:none; background:transparent; color:var(--muted); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:color .2s; gap:3px; }
+  .nav-item.active { color:var(--accent); }
+  .nav-icon { font-size:20px; line-height:1; }
+  .nav-label { font-size:10px; font-weight:600; letter-spacing:.2px; }
+  /* ── STATS VIEW ── */
+  #view-stats { width:100%; min-height:100vh; display:none; flex-direction:column; align-items:center; }
+  .stats-main { width:100%; max-width:600px; padding:20px 16px 90px; display:flex; flex-direction:column; gap:14px; }
+  .overall-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px 20px; text-align:center; }
+  .overall-nums { font-size:52px; font-weight:700; color:var(--accent); line-height:1; }
+  .overall-nums span { font-size:26px; color:var(--muted); }
+  .overall-lbl { font-size:13px; color:var(--muted); margin:6px 0 18px; }
+  .overall-bar-wrap { height:8px; background:var(--bg); border-radius:4px; overflow:hidden; margin-bottom:8px; }
+  .overall-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .6s ease; }
+  .overall-pct-lbl { font-size:13px; color:var(--muted); }
+  .set-stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 15px; }
+  .set-stat-header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .set-stat-icon { font-size:24px; }
+  .set-stat-info { flex:1; min-width:0; }
+  .set-stat-name { font-size:14px; font-weight:700; }
+  .set-stat-nums { font-size:12px; color:var(--muted); margin-top:2px; }
+  .set-stat-pct { font-size:22px; font-weight:700; color:var(--accent); }
+  .set-stat-pct.done { color:var(--green); }
+  .set-stat-bar-wrap { height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+  .set-stat-bar-fill { height:100%; border-radius:3px; transition:width .6s ease; background:var(--accent); }
 
-  /* ── MAIN ── */
-  main {
-    width: 100%;
-    max-width: 600px;
-    padding: 16px 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-  }
+  /* ── STUDY ── */
+  #loading { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:999; transition:opacity .3s; }
+  .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
 
-  /* ── STATS PANEL ── */
-  .stats-panel {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
+  .study-main { width:100%; max-width:600px; padding:14px 12px 90px; display:flex; flex-direction:column; align-items:center; gap:12px; }
 
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 10px;
-    text-align: center;
-  }
+  .stats-panel { width:100%; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 10px; text-align:center; }
+  .stat-card .val { font-size:24px; font-weight:700; display:block; }
+  .val.blue{color:var(--accent);} .val.green{color:var(--green);} .val.yellow{color:var(--yellow);}
+  .stat-card .lbl { font-size:11px; color:var(--muted); margin-top:3px; }
 
-  .stat-card .val {
-    font-size: 26px;
-    font-weight: 700;
-    display: block;
-  }
+  .mode-tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; width:100%; }
+  .mode-tab { flex:1; padding:8px 4px; border-radius:9px; border:none; background:transparent; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; text-align:center; }
+  .mode-tab.active { background:var(--accent); color:var(--acc-t); }
 
-  .stat-card .val.blue   { color: var(--accent); }
-  .stat-card .val.green  { color: var(--green); }
-  .stat-card .val.yellow { color: var(--yellow); }
-  .stat-card .lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .round-banner { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; }
+  .round-label { font-size:14px; font-weight:700; color:var(--accent); }
+  .round-progress-text { font-size:12px; color:var(--muted); }
 
-  /* ── MODE TABS ── */
-  .mode-tabs {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 4px;
-    gap: 4px;
-    width: 100%;
-  }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%; }
+  .tab { padding:6px 12px; border-radius:100px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; transition:all .2s; }
+  .tab.active { background:var(--accent); border-color:var(--accent); color:var(--acc-t); }
 
-  .mode-tab {
-    flex: 1;
-    padding: 9px 4px;
-    border-radius: 9px;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; }
+  .btn { padding:8px 16px; border-radius:100px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; font-weight:500; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+  .btn:active { transform:scale(.96); }
 
-  .mode-tab.active { background: var(--accent); color: var(--accent-t); }
+  .progress-row { width:100%; display:flex; align-items:center; gap:10px; }
+  .progress-bar-wrap { flex:1; height:6px; background:var(--surface); border-radius:3px; overflow:hidden; border:1px solid var(--border); }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width .4s ease; }
+  .progress-label { font-size:12px; color:var(--muted); min-width:48px; text-align:right; }
 
-  /* ── CATEGORY TABS ── */
-  .tabs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-  }
+  .card-scene { width:100%; perspective:1000px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .card-wrapper { position:relative; width:100%; padding-bottom:58%; transform-style:preserve-3d; transition:transform .5s cubic-bezier(.4,0,.2,1); }
+  .card-wrapper.flipped { transform:rotateY(180deg); }
+  .card-face { position:absolute; inset:0; border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 20px; backface-visibility:hidden; -webkit-backface-visibility:hidden; box-shadow:var(--shadow); border:1px solid var(--border); gap:8px; }
+  .card-front { background:var(--surface); }
+  .card-back  { background:var(--surface); border-color:var(--accent); transform:rotateY(180deg); }
+  .card-badge { position:absolute; top:12px; left:14px; font-size:10px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); background:var(--bg); padding:3px 8px; border-radius:100px; border:1px solid var(--border); }
+  .card-known-badge { position:absolute; top:12px; right:52px; font-size:10px; font-weight:700; color:var(--green); background:rgba(46,204,113,.12); border:1px solid var(--green); padding:3px 8px; border-radius:100px; }
+  .card-hint { position:absolute; bottom:10px; font-size:10px; color:var(--muted); pointer-events:none; }
+  .card-word { font-size:clamp(18px,5vw,32px); font-weight:700; text-align:center; line-height:1.2; }
+  .card-front .card-word { color:var(--text); }
+  .card-back  .card-word { color:var(--link); }
+  .card-translation { font-size:clamp(13px,3vw,17px); color:var(--muted); text-align:center; line-height:1.4; font-style:italic; }
 
-  .tab {
-    padding: 6px 14px;
-    border-radius: 100px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
+  .ctx-btn { position:absolute; top:10px; right:10px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:var(--muted); border-radius:8px; padding:4px 8px; font-size:13px; cursor:pointer; z-index:5; transition:all .2s; -webkit-tap-highlight-color:transparent; line-height:1; }
+  .ctx-btn:active { transform:scale(.93); }
+  .ctx-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .ctx-sentence { max-width:88%; font-size:12px; color:var(--muted); font-style:italic; background:rgba(255,255,255,.04); border-radius:8px; padding:7px 12px; border-left:3px solid var(--accent); text-align:left; line-height:1.5; animation:fadeInUp .18s ease; }
 
-  .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-t); }
+  .nav-row { display:flex; align-items:center; gap:16px; }
+  .nav-btn { width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+  .nav-btn:active { transform:scale(.93); }
+  .nav-btn:disabled { opacity:.3; pointer-events:none; }
+  .card-counter { font-size:16px; font-weight:600; color:var(--muted); min-width:70px; text-align:center; }
 
-  /* ── CONTROLS ── */
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .mark-row { display:flex; gap:12px; justify-content:center; width:100%; }
+  .mark-btn { flex:1; max-width:180px; padding:13px; border-radius:var(--radius); border:2px solid; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px; -webkit-tap-highlight-color:transparent; }
+  .mark-btn:active { transform:scale(.96); }
+  .mark-btn.unknown { border-color:var(--red);   background:rgba(231,76,60,.1);  color:var(--red); }
+  .mark-btn.known   { border-color:var(--green); background:rgba(46,204,113,.1); color:var(--green); }
 
-  .btn {
-    padding: 8px 16px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
+  .quiz-section { width:100%; display:none; flex-direction:column; gap:14px; }
+  .quiz-question { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; }
+  .quiz-question h3 { font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .quiz-word { font-size:clamp(20px,5vw,32px); font-weight:700; }
+  .quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .quiz-opt { padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:14px; cursor:pointer; transition:all .2s; text-align:center; -webkit-tap-highlight-color:transparent; }
+  .quiz-opt:active { transform:scale(.97); }
+  .quiz-opt.correct { background:rgba(46,204,113,.2); border-color:var(--green); color:var(--green); }
+  .quiz-opt.wrong   { background:rgba(231,76,60,.2);  border-color:var(--red);   color:var(--red); }
+  .quiz-footer { display:flex; gap:8px; justify-content:center; }
+  .quiz-score-line { text-align:center; font-size:13px; color:var(--muted); }
 
-  .btn:active { transform: scale(0.97); }
+  .list-section { width:100%; display:none; flex-direction:column; gap:10px; }
+  .search-bar { width:100%; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:14px; outline:none; }
+  .word-item { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+  .word-item.known { border-color:rgba(46,204,113,.3); background:rgba(46,204,113,.05); }
+  .word-en { font-size:14px; font-weight:600; flex:1; }
+  .word-ru { font-size:13px; color:var(--muted); flex:1; }
+  .word-badge { font-size:10px; color:var(--muted); background:var(--bg); border:1px solid var(--border); padding:2px 7px; border-radius:100px; flex-shrink:0; }
+  .word-check { font-size:14px; color:var(--green); flex-shrink:0; }
 
-  /* ── PROGRESS ── */
-  .progress-row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:rgba(30,34,50,.96); border:1px solid var(--border); color:var(--text); padding:10px 20px; border-radius:100px; font-size:13px; font-weight:500; opacity:0; transition:all .3s; pointer-events:none; white-space:nowrap; z-index:200; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-  .progress-bar-wrap {
-    flex: 1;
-    height: 5px;
-    background: var(--surface);
-    border-radius: 100px;
-    overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 100px;
-    transition: width 0.4s ease;
-  }
-
-  .progress-label { font-size: 12px; color: var(--muted); min-width: 48px; text-align: right; }
-
-  /* ── CARD ── */
-  .card-scene {
-    width: 100%;
-    perspective: 1000px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .card-wrapper {
-    position: relative;
-    width: 100%;
-    padding-bottom: 58%;
-    transform-style: preserve-3d;
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .card-wrapper.flipped { transform: rotateY(180deg); }
-
-  .card-face {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--radius);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 20px;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-    gap: 10px;
-  }
-
-  .card-front { background: var(--surface); }
-  .card-back  { background: var(--surface); border-color: var(--accent); transform: rotateY(180deg); }
-
-  .card-badge {
-    position: absolute;
-    top: 12px;
-    left: 14px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    color: var(--muted);
-    background: var(--bg);
-    padding: 3px 8px;
-    border-radius: 100px;
-    border: 1px solid var(--border);
-  }
-
-  .card-known-badge {
-    position: absolute;
-    top: 12px;
-    right: 14px;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--green);
-    background: rgba(46,204,113,0.12);
-    border: 1px solid var(--green);
-    padding: 3px 8px;
-    border-radius: 100px;
-  }
-
-  .card-hint {
-    position: absolute;
-    bottom: 12px;
-    font-size: 10px;
-    color: var(--muted);
-    pointer-events: none;
-  }
-
-  .card-word {
-    font-size: clamp(20px, 5vw, 34px);
-    font-weight: 700;
-    text-align: center;
-    line-height: 1.2;
-  }
-
-  .card-front .card-word { color: var(--text); }
-  .card-back  .card-word { color: var(--link); }
-  .card-translation { font-size: clamp(14px, 3vw, 18px); color: var(--muted); text-align: center; line-height: 1.4; font-style: italic; }
-
-  /* ── NAV ── */
-  .nav-row { display: flex; align-items: center; gap: 16px; }
-
-  .nav-btn {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 20px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .nav-btn:active { transform: scale(0.93); }
-  .nav-btn:disabled { opacity: 0.3; pointer-events: none; }
-
-  .card-counter { font-size: 16px; font-weight: 600; color: var(--muted); min-width: 70px; text-align: center; }
-
-  /* ── MARK BUTTONS ── */
-  .mark-row { display: flex; gap: 12px; justify-content: center; width: 100%; }
-
-  .mark-btn {
-    flex: 1; max-width: 180px;
-    padding: 13px;
-    border-radius: var(--radius);
-    border: 2px solid;
-    font-size: 14px; font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .mark-btn:active { transform: scale(0.96); }
-  .mark-btn.unknown { border-color: var(--red);   background: rgba(231,76,60,0.1);  color: var(--red); }
-  .mark-btn.known   { border-color: var(--green); background: rgba(46,204,113,0.1); color: var(--green); }
-
-  /* ── QUIZ ── */
-  .quiz-section { width: 100%; display: none; flex-direction: column; gap: 12px; }
-  .quiz-section.active { display: flex; }
-
-  .quiz-question {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px 20px;
-    text-align: center;
-  }
-
-  .quiz-question h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-  .quiz-word { font-size: clamp(20px, 5vw, 30px); font-weight: 700; }
-
-  .quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  .quiz-option {
-    padding: 14px 10px;
-    border-radius: 12px;
-    border: 2px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    line-height: 1.4;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .quiz-option:active { transform: scale(0.97); }
-  .quiz-option.correct { border-color: var(--green); background: rgba(46,204,113,0.15); color: var(--green); }
-  .quiz-option.wrong   { border-color: var(--red);   background: rgba(231,76,60,0.15);  color: var(--red); }
-  .quiz-option:disabled { cursor: not-allowed; }
-
-  .quiz-footer { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
-  .quiz-score-line { font-size: 13px; color: var(--muted); }
-  .quiz-score-line strong { color: var(--text); }
-
-  /* ── LIST ── */
-  .list-section { width: 100%; display: none; flex-direction: column; gap: 8px; }
-  .list-section.active { display: flex; }
-
-  .search-bar {
-    width: 100%;
-    padding: 11px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    color: var(--text);
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  .search-bar:focus { border-color: var(--accent); }
-  .search-bar::placeholder { color: var(--muted); }
-
-  .word-list-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .word-list-item.known  { border-left-color: var(--green); }
-  .wli-en  { font-weight: 600; font-size: 14px; }
-  .wli-ru  { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .wli-cat {
-    font-size: 10px; color: var(--muted);
-    background: var(--bg); padding: 2px 7px;
-    border-radius: 100px; border: 1px solid var(--border);
-    white-space: nowrap; flex-shrink: 0;
-  }
-
-  /* ── TOAST ── */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(16px);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 20px;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 500;
-    box-shadow: var(--shadow);
-    opacity: 0;
-    transition: all 0.3s ease;
-    z-index: 999;
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* ── LOADING ── */
-  #loading {
-    position: fixed; inset: 0;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 9999;
-    transition: opacity 0.3s;
-  }
-
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  @media (max-width: 480px) {
-    .quiz-options { grid-template-columns: 1fr; }
-    .stats-panel  { grid-template-columns: 1fr 1fr 1fr; }
-    .card-wrapper { padding-bottom: 65%; }
-  }
-
-  /* ── ROUNDS ── */
-  .round-banner {
-    width: 100%; display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px;
-  }
-  .round-label { font-size: 14px; font-weight: 700; color: var(--accent); }
-  .round-progress-text { font-size: 12px; color: var(--muted); }
-
-  .round-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 200; padding: 20px; backdrop-filter: blur(4px);
-  }
-  .round-summary {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 24px;
-    padding: 32px 24px; width: 100%; max-width: 360px;
-    display: flex; flex-direction: column; align-items: center; gap: 20px;
-    box-shadow: var(--shadow);
-  }
-  .round-emoji { font-size: 52px; line-height: 1; }
-  .round-summary h2 { font-size: 20px; font-weight: 700; text-align: center; }
-  .round-summary p { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.5; }
-  .round-stats { display: flex; gap: 16px; width: 100%; }
-  .rstat { flex: 1; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 16px 8px; }
-  .rstat .rv { font-size: 32px; font-weight: 700; display: block; }
-  .rstat .rl { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .rstat.green .rv { color: var(--green); }
-  .rstat.red   .rv { color: var(--red); }
-  .round-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; -webkit-tap-highlight-color: transparent; }
-  .round-btn.primary   { background: var(--accent); color: var(--accent-t); }
-  .round-btn.secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
-  .round-btn:active { transform: scale(.97); }
+  .round-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:300; padding:20px; }
+  .round-summary { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:32px 24px; text-align:center; width:100%; max-width:360px; display:flex; flex-direction:column; gap:16px; }
+  .round-emoji { font-size:48px; }
+  .round-stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .rstat { padding:16px; border-radius:14px; border:1px solid var(--border); }
+  .rstat.green { background:rgba(46,204,113,.1); border-color:var(--green); }
+  .rstat.red   { background:rgba(231,76,60,.1);  border-color:var(--red); }
+  .rv { font-size:28px; font-weight:700; display:block; }
+  .rstat.green .rv { color:var(--green); } .rstat.red .rv { color:var(--red); }
+  .rl { font-size:12px; color:var(--muted); margin-top:4px; }
+  .round-btn { padding:14px; border-radius:var(--radius); border:none; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; }
+  .round-btn.primary   { background:var(--accent); color:var(--acc-t); }
+  .round-btn.secondary { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .round-btn:active { transform:scale(.97); }
 </style>
 </head>
 <body>
 
-<div id="loading"><div class="spinner"></div></div>
+<!-- ══════════ HOME VIEW ══════════ -->
+<div id="view-home">
+  <header>
+    <div class="logo">✦ Flashcards</div>
+  </header>
+  <div class="home-main">
+    <div class="section-title">Выберите наборы для изучения</div>
 
-<header>
-  <div class="logo">✦ Flashcards</div>
-  <div class="header-stats">
-    <span style="color:var(--green)">✓ <strong id="hdr-known">0</strong></span>
-    <span>/ <strong id="hdr-total">0</strong></span>
-  </div>
-</header>
-
-<main>
-  <!-- Stats -->
-  <div class="stats-panel">
-    <div class="stat-card"><span class="val blue" id="stat-total">0</span><div class="lbl">Всего</div></div>
-    <div class="stat-card"><span class="val green" id="stat-known">0</span><div class="lbl">Изучено</div></div>
-    <div class="stat-card"><span class="val yellow" id="stat-pct">0%</span><div class="lbl">Прогресс</div></div>
-  </div>
-
-  <!-- Mode selector -->
-  <div class="mode-tabs">
-    <div class="mode-tab active" onclick="setMode('cards')">🃏 Карточки</div>
-    <div class="mode-tab" onclick="setMode('rounds')">📖 Раунды</div>
-    <div class="mode-tab" onclick="setMode('quiz')">🧠 Тест</div>
-    <div class="mode-tab" onclick="setMode('list')">📋 Список</div>
-  </div>
-
-  <!-- Round banner (visible only in rounds mode) -->
-  <div class="round-banner" id="round-banner" style="display:none">
-    <div class="round-label" id="round-label">📖 Раунд 1</div>
-    <div class="round-progress-text" id="round-progress-text">0 / 0</div>
-  </div>
-
-  <!-- Category tabs -->
-  <div class="tabs">
-    <div class="tab active" data-cat="all" onclick="setCategory('all')">Все</div>
-    <div class="tab" data-cat="adj_adv" onclick="setCategory('adj_adv')">Прил./Нар.</div>
-    <div class="tab" data-cat="noun" onclick="setCategory('noun')">Сущ.</div>
-    <div class="tab" data-cat="verb" onclick="setCategory('verb')">Глаг.</div>
-    <div class="tab" data-cat="phrase" onclick="setCategory('phrase')">Фразы</div>
-    <div class="tab" data-cat="unknown" onclick="setCategory('unknown')">Новые</div>
-  </div>
-
-  <!-- Controls -->
-  <div class="controls" id="card-controls">
-    <button class="btn" onclick="shuffleDeck()">🔀 Перемешать</button>
-    <button class="btn" id="btn-lang" onclick="toggleLang()">🔄 Рус → Англ</button>
-    <button class="btn" onclick="resetProgress()">↺ Сбросить</button>
-  </div>
-
-  <!-- Progress -->
-  <div class="progress-row" id="card-progress">
-    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
-    <div class="progress-label" id="progress-label">0 / 0</div>
-  </div>
-
-  <!-- CARDS MODE -->
-  <div class="card-scene" id="card-scene" onclick="flipCard()">
-    <div class="card-wrapper" id="card-wrapper">
-      <div class="card-face card-front">
-        <div class="card-badge" id="card-cat">...</div>
-        <div class="card-known-badge" id="card-known-badge" style="display:none">✓ Знаю</div>
-        <div class="card-word" id="card-front-word">—</div>
-        <div class="card-hint">Нажмите чтобы перевернуть</div>
+    <div class="folder-card selected" id="card-thematic" onclick="toggleSelect('thematic')">
+      <div class="folder-icon blue">🎨</div>
+      <div class="folder-info">
+        <div class="folder-name">Тематический набор</div>
+        <div class="folder-meta">Искусство и живопись</div>
+        <div class="folder-stats">
+          <span class="folder-stat" id="count-thematic">...</span>
+          <span class="folder-stat" id="prog-thematic">...</span>
+        </div>
       </div>
-      <div class="card-face card-back">
-        <div class="card-word" id="card-back-word">—</div>
-        <div class="card-translation" id="card-back-trans"></div>
-        <div class="card-hint">Нажмите чтобы перевернуть</div>
+      <div class="check-circle" id="chk-thematic">✓</div>
+    </div>
+
+    <div class="folder-card selected" id="card-b2" onclick="toggleSelect('b2')">
+      <div class="folder-icon purple">📚</div>
+      <div class="folder-info">
+        <div class="folder-name">B2 Словарь</div>
+        <div class="folder-meta">Продвинутый уровень</div>
+        <div class="folder-stats">
+          <span class="folder-stat" id="count-b2">...</span>
+          <span class="folder-stat" id="prog-b2">...</span>
+        </div>
+      </div>
+      <div class="check-circle" id="chk-b2">✓</div>
+    </div>
+
+    <div class="hint-text">Выберите наборы и нажмите «Карточки» внизу</div>
+  </div>
+</div>
+
+<!-- ══════════ STUDY VIEW ══════════ -->
+<div id="view-study">
+  <div id="loading"><div class="spinner"></div></div>
+
+  <header>
+    <div class="logo" id="study-title">🎯 Все наборы</div>
+    <div class="header-stats">
+      <span style="color:var(--green)">✓ <strong id="hdr-known">0</strong></span>
+      <span>/ <strong id="hdr-total">0</strong></span>
+    </div>
+  </header>
+
+  <div class="study-main">
+    <div class="stats-panel">
+      <div class="stat-card"><span class="val blue"   id="stat-total">0</span><div class="lbl">Всего</div></div>
+      <div class="stat-card"><span class="val green"  id="stat-known">0</span><div class="lbl">Изучено</div></div>
+      <div class="stat-card"><span class="val yellow" id="stat-pct">0%</span><div class="lbl">Прогресс</div></div>
+    </div>
+
+    <div class="mode-tabs">
+      <div class="mode-tab active" onclick="setMode('cards')">🃏 Карточки</div>
+      <div class="mode-tab" onclick="setMode('rounds')">📖 Раунды</div>
+      <div class="mode-tab" onclick="setMode('quiz')">🧠 Тест</div>
+      <div class="mode-tab" onclick="setMode('list')">📋 Список</div>
+    </div>
+
+    <div class="round-banner" id="round-banner" style="display:none">
+      <div class="round-label" id="round-label">📖 Раунд 1</div>
+      <div class="round-progress-text" id="round-progress-text">0 / 0</div>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="controls" id="card-controls">
+      <button class="btn" onclick="shuffleDeck()">🔀 Перемешать</button>
+      <button class="btn" id="btn-lang" onclick="toggleLang()">🔄 Рус → Англ</button>
+      <button class="btn" onclick="resetProgress()">↺ Сбросить</button>
+    </div>
+
+    <div class="progress-row" id="card-progress">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="progress-label">0 / 0</div>
+    </div>
+
+    <div class="card-scene" id="card-scene" onclick="flipCard()">
+      <div class="card-wrapper" id="card-wrapper">
+        <div class="card-face card-front">
+          <div class="card-badge" id="card-cat">...</div>
+          <div class="card-known-badge" id="card-known-badge" style="display:none">✓ Знаю</div>
+          <button class="ctx-btn" id="ctx-btn-front" onclick="toggleCtx(event,'front')" title="Пример в контексте">💬</button>
+          <div class="card-word" id="card-front-word">—</div>
+          <div class="ctx-sentence" id="ctx-front" style="display:none"></div>
+          <div class="card-hint">Нажмите чтобы перевернуть</div>
+        </div>
+        <div class="card-face card-back">
+          <button class="ctx-btn" id="ctx-btn-back" onclick="toggleCtx(event,'back')" title="Пример в контексте">💬</button>
+          <div class="card-word" id="card-back-word">—</div>
+          <div class="card-translation" id="card-back-trans"></div>
+          <div class="ctx-sentence" id="ctx-back" style="display:none"></div>
+          <div class="card-hint">Нажмите чтобы перевернуть</div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Nav row -->
-  <div class="nav-row" id="nav-row">
-    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">‹</button>
-    <div class="card-counter" id="card-counter">1 / 1</div>
-    <button class="nav-btn" id="btn-next" onclick="navigate(1)">›</button>
-  </div>
-
-  <!-- Mark buttons -->
-  <div class="mark-row" id="mark-row">
-    <button class="mark-btn unknown" onclick="onMarkCard(false)">✗ Не знаю</button>
-    <button class="mark-btn known"   onclick="onMarkCard(true)">✓ Знаю</button>
-  </div>
-
-  <!-- QUIZ MODE -->
-  <div class="quiz-section" id="quiz-section">
-    <div class="quiz-question">
-      <h3 id="quiz-direction">Выберите перевод</h3>
-      <div class="quiz-word" id="quiz-word">—</div>
+    <div class="nav-row" id="nav-row">
+      <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">‹</button>
+      <div class="card-counter" id="card-counter">1 / 1</div>
+      <button class="nav-btn" id="btn-next" onclick="navigate(1)">›</button>
     </div>
-    <div class="quiz-options" id="quiz-options"></div>
-    <div class="quiz-footer">
-      <button class="btn" onclick="nextQuiz()">→ Следующий</button>
-      <button class="btn" onclick="initQuiz()">🔀 Заново</button>
-    </div>
-    <div class="quiz-score-line" style="text-align:center">
-      Очков: <strong id="quiz-score">0</strong> / <strong id="quiz-total">0</strong>
-    </div>
-  </div>
 
-  <!-- LIST MODE -->
-  <div class="list-section" id="list-section">
-    <input type="text" class="search-bar" id="search-input" placeholder="🔍 Поиск..." oninput="filterList()">
-    <div id="word-list"></div>
+    <div class="mark-row" id="mark-row">
+      <button class="mark-btn unknown" onclick="onMarkCard(false)">✗ Не знаю</button>
+      <button class="mark-btn known"   onclick="onMarkCard(true)">✓ Знаю</button>
+    </div>
+
+    <div class="quiz-section" id="quiz-section">
+      <div class="quiz-question">
+        <h3 id="quiz-direction">Выберите перевод</h3>
+        <div class="quiz-word" id="quiz-word">—</div>
+      </div>
+      <div class="quiz-options" id="quiz-options"></div>
+      <div class="quiz-footer">
+        <button class="btn" onclick="nextQuiz()">→ Следующий</button>
+        <button class="btn" onclick="initQuiz()">🔀 Заново</button>
+      </div>
+      <div class="quiz-score-line">Очков: <strong id="quiz-score">0</strong> / <strong id="quiz-total">0</strong></div>
+    </div>
+
+    <div class="list-section" id="list-section">
+      <input type="text" class="search-bar" id="search-input" placeholder="🔍 Поиск..." oninput="filterList()">
+      <div id="word-list"></div>
+    </div>
   </div>
-</main>
+</div>
+
+<!-- ══════════ STATS VIEW ══════════ -->
+<div id="view-stats" style="display:none; flex-direction:column; align-items:center; width:100%; min-height:100vh;">
+  <header>
+    <div class="logo">📊 Статистика</div>
+  </header>
+  <div class="stats-main" id="stats-content"></div>
+</div>
+
+<!-- ══════════ BOTTOM NAV ══════════ -->
+<nav id="bottom-nav">
+  <button class="nav-item active" id="nav-folders" onclick="switchTab('folders')">
+    <span class="nav-icon">📁</span>
+    <span class="nav-label">Папки</span>
+  </button>
+  <button class="nav-item" id="nav-cards" onclick="switchTab('cards')">
+    <span class="nav-icon">🃏</span>
+    <span class="nav-label">Карточки</span>
+  </button>
+  <button class="nav-item" id="nav-stats" onclick="switchTab('stats')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Статистика</span>
+  </button>
+</nav>
 
 <div class="toast" id="toast"></div>
 
-<!-- Round summary overlay -->
 <div class="round-overlay" id="round-overlay" style="display:none">
   <div class="round-summary">
     <div class="round-emoji" id="round-emoji">✅</div>
@@ -620,554 +366,445 @@
 </div>
 
 <script>
-// ── TELEGRAM SETUP ────────────────────────────────────────────────────
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-}
+if (tg) { tg.ready(); tg.expand(); }
 
-// ── STORAGE (CloudStorage with localStorage fallback) ─────────────────
 const storage = {
   get(key, cb) {
-    if (tg?.CloudStorage) {
-      tg.CloudStorage.getItem(key, (err, val) => cb(val || null));
-    } else {
-      cb(localStorage.getItem(key));
-    }
+    if (tg?.CloudStorage) tg.CloudStorage.getItem(key, (err, val) => cb(val || null));
+    else cb(localStorage.getItem(key));
   },
   set(key, val) {
-    if (tg?.CloudStorage) {
-      tg.CloudStorage.setItem(key, val);
-    } else {
-      localStorage.setItem(key, val);
-    }
+    if (tg?.CloudStorage) tg.CloudStorage.setItem(key, val);
+    else localStorage.setItem(key, val);
   }
 };
 
-// ── VOCABULARY DATA ───────────────────────────────────────────────────
-const WORDS = [
-  // Adjectives / Adverbs
-  {en:"remarkably",       ru:"примечательно, замечательно",   cat:"adj_adv"},
-  {en:"independent",     ru:"независимый",                   cat:"adj_adv"},
-  {en:"shifting",        ru:"меняющийся, изменчивый",        cat:"adj_adv"},
-  {en:"essential",       ru:"существенный, основной",        cat:"adj_adv"},
-  {en:"abstract",        ru:"абстрактный",                   cat:"adj_adv"},
-  {en:"exceptionally",   ru:"исключительно",                 cat:"adj_adv"},
-  {en:"keen",            ru:"острый, проницательный",        cat:"adj_adv"},
-  {en:"subtle",          ru:"тонкий, едва заметный",         cat:"adj_adv"},
-  {en:"innovative",      ru:"инновационный",                 cat:"adj_adv"},
-  {en:"avant-garde",     ru:"авангардный",                   cat:"adj_adv"},
-  {en:"vigorously",      ru:"энергично, активно",            cat:"adj_adv"},
-  {en:"celebrated",      ru:"знаменитый, прославленный",     cat:"adj_adv"},
-  {en:"dramatic",        ru:"драматический",                 cat:"adj_adv"},
-  {en:"dramatically",    ru:"драматично",                    cat:"adj_adv"},
-  {en:"soaring",         ru:"взмывающий, возвышающийся",     cat:"adj_adv"},
-  {en:"botanical",       ru:"ботанический",                  cat:"adj_adv"},
-  {en:"magnified",       ru:"увеличенный",                   cat:"adj_adv"},
-  {en:"daring",          ru:"смелый, дерзкий",               cat:"adj_adv"},
-  {en:"extended",        ru:"продолжительный",               cat:"adj_adv"},
-  {en:"permanent",       ru:"постоянный",                    cat:"adj_adv"},
-  {en:"permanently",     ru:"постоянно",                     cat:"adj_adv"},
-  {en:"numerous",        ru:"многочисленный",                cat:"adj_adv"},
-  {en:"sun-bleached",    ru:"выбеленный солнцем",            cat:"adj_adv"},
-  {en:"rugged",          ru:"пересечённый, изрезанный",      cat:"adj_adv"},
-  {en:"exquisitely",     ru:"изысканно, утончённо",          cat:"adj_adv"},
-  {en:"weathered",       ru:"выветренный, обветшалый",       cat:"adj_adv"},
-  {en:"jagged",          ru:"зазубренный, неровный",         cat:"adj_adv"},
-  {en:"irregular",       ru:"неправильный, неровный",        cat:"adj_adv"},
-  {en:"convex",          ru:"выпуклый",                      cat:"adj_adv"},
-  {en:"concave",         ru:"вогнутый",                      cat:"adj_adv"},
-  {en:"spectacular",     ru:"впечатляющий, зрелищный",       cat:"adj_adv"},
-  {en:"vivid",           ru:"яркий, живой",                  cat:"adj_adv"},
-  {en:"exotic",          ru:"экзотический",                  cat:"adj_adv"},
-  {en:"striking",        ru:"поразительный, яркий",          cat:"adj_adv"},
-  {en:"nestled",         ru:"расположенный, приютившийся",   cat:"adj_adv"},
-  {en:"expansive",       ru:"обширный, широкий",             cat:"adj_adv"},
-  {en:"monumental",      ru:"монументальный",                cat:"adj_adv"},
-  {en:"enormous",        ru:"огромный, колоссальный",        cat:"adj_adv"},
-  {en:"relatively",      ru:"относительно",                  cat:"adj_adv"},
-  {en:"unproductive",    ru:"непродуктивный",                cat:"adj_adv"},
-  {en:"subsequent",      ru:"последующий",                   cat:"adj_adv"},
-  // Nouns
-  {en:"vision",              ru:"видение, взгляд",                   cat:"noun"},
-  {en:"observation",         ru:"наблюдение",                        cat:"noun"},
-  {en:"finesse",             ru:"изящество, мастерство, тонкость",   cat:"noun"},
-  {en:"nuances",             ru:"нюансы, оттенки",                   cat:"noun"},
-  {en:"cattle breeders",     ru:"скотоводы",                         cat:"noun"},
-  {en:"siblings",            ru:"братья и сёстры",                   cat:"noun"},
-  {en:"techniques",          ru:"техники, методы",                   cat:"noun"},
-  {en:"compositions",        ru:"композиции",                        cat:"noun"},
-  {en:"charcoal",            ru:"древесный уголь",                   cat:"noun"},
-  {en:"gallery",             ru:"галерея",                           cat:"noun"},
-  {en:"encouragement",       ru:"поддержка, одобрение",              cat:"noun"},
-  {en:"decade",              ru:"десятилетие",                       cat:"noun"},
-  {en:"exhibitions",         ru:"выставки",                          cat:"noun"},
-  {en:"installations",       ru:"инсталляции",                       cat:"noun"},
-  {en:"portraits",           ru:"портреты",                          cat:"noun"},
-  {en:"skyscrapers",         ru:"небоскрёбы",                        cat:"noun"},
-  {en:"canvas",              ru:"холст",                             cat:"noun"},
-  {en:"reputation",          ru:"репутация",                         cat:"noun"},
-  {en:"modernist",           ru:"модернист",                         cat:"noun"},
-  {en:"solitude",            ru:"уединение",                         cat:"noun"},
-  {en:"inspiration",         ru:"вдохновение",                       cat:"noun"},
-  {en:"terrain",             ru:"местность, территория",             cat:"noun"},
-  {en:"imagination",         ru:"воображение",                       cat:"noun"},
-  {en:"skull",               ru:"череп",                             cat:"noun"},
-  {en:"surfaces",            ru:"поверхности",                       cat:"noun"},
-  {en:"edges",               ru:"края",                              cat:"noun"},
-  {en:"openings",            ru:"отверстия",                         cat:"noun"},
-  {en:"variation",           ru:"вариация",                          cat:"noun"},
-  {en:"pelvis",              ru:"таз (анатомия)",                    cat:"noun"},
-  {en:"contrasts",           ru:"контрасты",                         cat:"noun"},
-  {en:"landscape",           ru:"пейзаж, ландшафт",                  cat:"noun"},
-  {en:"geological formations",ru:"геологические образования",        cat:"noun"},
-  {en:"clarity",             ru:"ясность, чёткость",                 cat:"noun"},
-  {en:"vegetation",          ru:"растительность",                    cat:"noun"},
-  {en:"retreat",             ru:"убежище, уединённое место",         cat:"noun"},
-  {en:"cliffs",              ru:"утёсы, скалы",                      cat:"noun"},
-  {en:"residence",           ru:"резиденция, местожительство",       cat:"noun"},
-  {en:"locales",             ru:"места, местности",                  cat:"noun"},
-  {en:"imagery",             ru:"образы, образность",                cat:"noun"},
-  {en:"feature",             ru:"особенность, черта",                cat:"noun"},
-  {en:"patio",               ru:"патио, внутренний дворик",          cat:"noun"},
-  {en:"arrangement",         ru:"расположение, композиция",          cat:"noun"},
-  {en:"geometric shapes",    ru:"геометрические фигуры",             cat:"noun"},
-  {en:"aerial views",        ru:"виды с воздуха",                    cat:"noun"},
-  {en:"motifs",              ru:"мотивы",                            cat:"noun"},
-  {en:"assistants",          ru:"ассистенты, помощники",             cat:"noun"},
-  {en:"challenge",           ru:"вызов, задача",                     cat:"noun"},
-  {en:"feat",                ru:"подвиг, достижение",                cat:"noun"},
-  {en:"blindness",           ru:"слепота",                           cat:"noun"},
-  {en:"legacy",              ru:"наследие",                          cat:"noun"},
-  {en:"generations",         ru:"поколения",                         cat:"noun"},
-  // Verbs
-  {en:"remained",       ru:"оставаться",                            cat:"verb"},
-  {en:"enlivened",      ru:"оживлять",                              cat:"verb"},
-  {en:"determined",     ru:"решать, определять",                    cat:"verb"},
-  {en:"experiment",     ru:"экспериментировать",                    cat:"verb"},
-  {en:"exhibited",      ru:"выставлять",                            cat:"verb"},
-  {en:"promoted",       ru:"продвигать",                            cat:"verb"},
-  {en:"recognized",     ru:"признавать",                            cat:"verb"},
-  {en:"depict",         ru:"изображать",                            cat:"verb"},
-  {en:"depicting",      ru:"изображающий",                          cat:"verb"},
-  {en:"emphasized",     ru:"подчёркивать",                          cat:"verb"},
-  {en:"establish",      ru:"устанавливать, основывать",             cat:"verb"},
-  {en:"sparked",        ru:"зажигать, вызывать",                    cat:"verb"},
-  {en:"reproduce",      ru:"воспроизводить",                        cat:"verb"},
-  {en:"focused on",     ru:"сосредоточиться на",                    cat:"verb"},
-  {en:"reinvented",     ru:"переосмысливать, изобретать заново",    cat:"verb"},
-  {en:"translated",     ru:"переносить (в другую форму)",           cat:"verb"},
-  {en:"hindered",       ru:"препятствовать, мешать",                cat:"verb"},
-  {en:"derive",         ru:"получать, черпать",                     cat:"verb"},
-  // Phrases
-  {en:"remained independent from", ru:"оставаться независимым от",              cat:"phrase"},
-  {en:"stayed true to",            ru:"оставаться верным (чему-либо)",          cat:"phrase"},
-  {en:"based on",                  ru:"основанный на",                          cat:"phrase"},
-  {en:"powers of observation",     ru:"способность к наблюдению",               cat:"phrase"},
-  {en:"wide audience",             ru:"широкая аудитория",                      cat:"phrase"},
-  {en:"make her way",              ru:"прокладывать себе путь",                  cat:"phrase"},
-  {en:"led in a new direction",    ru:"направить в новое русло",                cat:"phrase"},
-  {en:"was impressed",             ru:"быть впечатлённым",                      cat:"phrase"},
-  {en:"introduced to the public",  ru:"представлен публике",                    cat:"phrase"},
-  {en:"promise of financial support",ru:"обещание финансовой поддержки",        cat:"phrase"},
-  {en:"ups and downs",             ru:"взлёты и падения",                       cat:"phrase"},
-  {en:"over the course of",        ru:"на протяжении",                          cat:"phrase"},
-  {en:"widely known for",          ru:"широко известный благодаря",             cat:"phrase"},
-  {en:"most often",                ru:"чаще всего",                             cat:"phrase"},
-  {en:"right into the picture",    ru:"прямо в картину",                        cat:"phrase"},
-  {en:"helped establish",          ru:"помог установить",                       cat:"phrase"},
-  {en:"lasting impact",            ru:"длительное влияние",                     cat:"phrase"},
-  {en:"immediate effect",          ru:"немедленный эффект",                     cat:"phrase"},
-  {en:"came across",               ru:"натолкнуться на, обнаружить",            cat:"phrase"},
-  {en:"sparked imagination",       ru:"разжечь воображение",                    cat:"phrase"},
-  {en:"held the imagination",      ru:"захватить воображение",                  cat:"phrase"},
-  {en:"in striking close-up",      ru:"в поразительном крупном плане",          cat:"phrase"},
-  {en:"provided a wealth of",      ru:"предоставить богатство (чего-либо)",     cat:"phrase"},
-  {en:"travelled widely",          ru:"много путешествовать",                   cat:"phrase"},
-  {en:"expanded view",             ru:"расширенный взгляд",                     cat:"phrase"},
-  {en:"with the help of",          ru:"с помощью",                              cat:"phrase"},
-  {en:"nearing (age)",             ru:"приближаясь к (возрасту)",               cat:"phrase"},
-  {en:"ill health",                ru:"плохое здоровье",                        cat:"phrase"},
-  {en:"hindered ability",          ru:"препятствовать способности",             cat:"phrase"},
-  {en:"rich legacy",               ru:"богатое наследие",                       cat:"phrase"},
-  {en:"derive inspiration from",   ru:"черпать вдохновение из",                 cat:"phrase"},
-];
+// ── HOME ──────────────────────────────────────────────────────────────────────
+const SETS_META = {
+  thematic: { count: (window.WORDS_THEMATIC||[]).length, storageKey: 'learned',    label: '🎨 Тем.' },
+  b2:       { count: (window.WORDS_B2||[]).length,       storageKey: 'b2_learned', label: '📚 B2'  },
+};
 
-const CAT_LABELS = { adj_adv:"Прил./Нар.", noun:"Существ.", verb:"Глагол", phrase:"Фраза" };
+// Fill in word counts on folder cards
+document.getElementById('count-thematic').textContent = SETS_META.thematic.count + ' слов';
+document.getElementById('count-b2').textContent       = SETS_META.b2.count + ' слов';
+const selected = new Set(['thematic', 'b2']);
+updateHomeUI();
 
-// ── STATE ─────────────────────────────────────────────────────────────
-let deck = [];
-let currentIdx = 0;
-let isFlipped = false;
-let showEnFirst = true;
-let currentMode = 'cards';
-let currentCategory = 'all';
-let learnedSet = new Set();
-let quizCurrent = null;
-let quizScore = 0;
-let quizTotal = 0;
-let quizAnswered = false;
-
-// ── INIT ──────────────────────────────────────────────────────────────
-storage.get('learned', (val) => {
-  learnedSet = new Set(JSON.parse(val || '[]'));
-  buildDeck();
-  updateStats();
-  setMode('cards');
-  document.getElementById('loading').style.opacity = '0';
-  setTimeout(() => document.getElementById('loading').remove(), 300);
-});
-
-// ── PERSISTENCE ───────────────────────────────────────────────────────
-function saveProgress() {
-  storage.set('learned', JSON.stringify([...learnedSet]));
+function toggleSelect(id) {
+  if (selected.has(id)) { if (selected.size === 1) return; selected.delete(id); }
+  else selected.add(id);
+  studyActive = false;
+  updateHomeUI();
+  if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
-// ── DECK ──────────────────────────────────────────────────────────────
+function wordForm(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'слово';
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'слова';
+  return 'слов';
+}
+
+function updateHomeUI() {
+  for (const id of Object.keys(SETS_META)) {
+    document.getElementById(`card-${id}`).classList.toggle('selected', selected.has(id));
+  }
+}
+
+function loadHomeProgress(id) {
+  const { storageKey, count } = SETS_META[id];
+  storage.get(storageKey, val => {
+    const n = val ? JSON.parse(val).length : 0;
+    const el = document.getElementById(`prog-${id}`);
+    if (!el) return;
+    if (n === 0)     { el.textContent = 'Не начато'; }
+    else if (n >= count) { el.textContent = '✓ Завершено'; el.classList.add('green'); }
+    else             { el.textContent = `✓ ${n} / ${count}`; el.classList.add('green'); }
+  });
+}
+
+loadHomeProgress('thematic');
+loadHomeProgress('b2');
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+let currentTab = 'folders';
+let studyActive = false;
+
+function showView(view) {
+  document.getElementById('view-home').style.display  = view === 'folders' ? 'flex' : 'none';
+  document.getElementById('view-study').style.display = view === 'cards'   ? 'flex' : 'none';
+  document.getElementById('view-stats').style.display = view === 'stats'   ? 'flex' : 'none';
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`nav-${tab}`).classList.add('active');
+  if (tab === 'folders') {
+    showView('folders');
+    ['thematic','b2'].forEach(id => {
+      const el = document.getElementById(`prog-${id}`);
+      el.textContent = '...'; el.className = 'folder-stat';
+      loadHomeProgress(id);
+    });
+  } else if (tab === 'cards') {
+    if (studyActive) { showView('cards'); }
+    else { startStudy(); }
+  } else if (tab === 'stats') {
+    showView('stats');
+    loadStats();
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+}
+
+function loadStats() {
+  const content = document.getElementById('stats-content');
+  content.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">⏳</div>';
+  let loaded = 0;
+  const results = {};
+  const sets = Object.keys(SETS_META);
+  sets.forEach(id => {
+    storage.get(SETS_META[id].storageKey, val => {
+      results[id] = val ? JSON.parse(val).length : 0;
+      if (++loaded === sets.length) renderStats(results);
+    });
+  });
+}
+
+function renderStats(results) {
+  const totalWords   = Object.values(SETS_META).reduce((s,m) => s + m.count, 0);
+  const totalLearned = Object.values(results).reduce((s,n) => s + n, 0);
+  const totalPct     = totalWords ? Math.round((totalLearned / totalWords) * 100) : 0;
+
+  const setMeta = {
+    thematic: { name:'Тематический набор', icon:'🎨' },
+    b2:       { name:'B2 Словарь',          icon:'📚' },
+  };
+
+  let html = `
+    <div class="section-title">Общий прогресс</div>
+    <div class="overall-card">
+      <div class="overall-nums">${totalLearned}<span> / ${totalWords}</span></div>
+      <div class="overall-lbl">слов изучено</div>
+      <div class="overall-bar-wrap"><div class="overall-bar-fill" style="width:${totalPct}%"></div></div>
+      <div class="overall-pct-lbl">${totalPct}%</div>
+    </div>
+    <div class="section-title">По наборам</div>`;
+
+  for (const id of Object.keys(SETS_META)) {
+    const { count } = SETS_META[id];
+    const learned = results[id] || 0;
+    const pct = count ? Math.round((learned / count) * 100) : 0;
+    const barColor = pct === 100 ? 'var(--green)' : 'var(--accent)';
+    html += `
+      <div class="set-stat-card">
+        <div class="set-stat-header">
+          <span class="set-stat-icon">${setMeta[id].icon}</span>
+          <div class="set-stat-info">
+            <div class="set-stat-name">${setMeta[id].name}</div>
+            <div class="set-stat-nums">${learned} / ${count} слов</div>
+          </div>
+          <div class="set-stat-pct ${pct===100?'done':''}">${pct}%</div>
+        </div>
+        <div class="set-stat-bar-wrap">
+          <div class="set-stat-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('stats-content').innerHTML = html;
+}
+
+function startStudy() {
+  const sets = [...selected];
+  // Build combined WORDS from selected sets
+  WORDS = [];
+  if (selected.has('thematic')) WORDS = WORDS.concat(window.WORDS_THEMATIC || []);
+  if (selected.has('b2'))       WORDS = WORDS.concat(window.WORDS_B2 || []);
+
+  // Title
+  const labels = sets.map(s => SETS_META[s].label);
+  document.getElementById('study-title').textContent = '🎯 ' + labels.join(' + ');
+
+  // Build tabs
+  buildTabs();
+
+  // Show study view
+  showView('cards');
+
+  // Decide storage key
+  const storageKey = sets.length === 1
+    ? SETS_META[sets[0]].storageKey
+    : 'all_learned';
+
+  document.getElementById('loading').style.display = 'flex';
+  storage.get(storageKey, val => {
+    currentStorageKey = storageKey;
+    learnedSet = new Set(JSON.parse(val || '[]'));
+    currentCategory = 'all';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.cat === 'all'));
+    buildDeck(); updateStats(); setMode('cards');
+    studyActive = true;
+    document.getElementById('loading').style.opacity = '0';
+    setTimeout(() => { document.getElementById('loading').style.opacity = '1'; document.getElementById('loading').style.display = 'none'; }, 300);
+  });
+}
+
+// ── STUDY ─────────────────────────────────────────────────────────────────────
+const CAT = { adj_adv:"Прил./Нар.", noun:"Существ.", verb:"Глагол", adj:"Прилаг.", adv:"Наречие", phrase:"Фраза" };
+
+let WORDS = [];
+let currentStorageKey = 'all_learned';
+
+function saveProgress() { storage.set(currentStorageKey, JSON.stringify([...learnedSet])); }
+
+function buildTabs() {
+  const seen = new Set(), cats = [];
+  WORDS.forEach(w => { if (!seen.has(w.cat)) { seen.add(w.cat); cats.push(w.cat); } });
+  const c = document.getElementById('tabs');
+  c.innerHTML = `<div class="tab active" data-cat="all" onclick="setCategory('all')">Все</div>`;
+  cats.forEach(cat => {
+    if (CAT[cat]) c.innerHTML += `<div class="tab" data-cat="${cat}" onclick="setCategory('${cat}')">${CAT[cat]}</div>`;
+  });
+  c.innerHTML += `<div class="tab" data-cat="unknown" onclick="setCategory('unknown')">Новые</div>`;
+}
+
+let ctxVisible = { front: false, back: false };
+function resetCtx() {
+  ['front','back'].forEach(side => {
+    const el = document.getElementById(`ctx-${side}`), btn = document.getElementById(`ctx-btn-${side}`);
+    if (el) el.style.display = 'none'; if (btn) btn.classList.remove('active');
+    ctxVisible[side] = false;
+  });
+}
+function toggleCtx(e, side) {
+  e.stopPropagation(); if (!deck.length) return;
+  const w = deck[currentIdx];
+  const el = document.getElementById(`ctx-${side}`), btn = document.getElementById(`ctx-btn-${side}`);
+  if (ctxVisible[side]) { el.style.display='none'; btn.classList.remove('active'); ctxVisible[side]=false; }
+  else {
+    const ctx = window.CONTEXT_B2 || {};
+    const ctxEn = w.ctx_en || (ctx[w.en]||{}).en || '';
+    const ctxRu = w.ctx_ru || (ctx[w.en]||{}).ru || '';
+    const sentence = side==='front' ? (showEnFirst?ctxEn:ctxRu) : (showEnFirst?ctxRu:ctxEn);
+    el.textContent = sentence || '—'; el.style.display='block'; btn.classList.add('active'); ctxVisible[side]=true;
+  }
+}
+
+let deck=[], currentIdx=0, isFlipped=false, showEnFirst=true;
+let currentMode='cards', currentCategory='all';
+let learnedSet=new Set();
+let roundMode=false, roundNumber=0, roundUnknown=[], roundKnownCount=0, roundUnknownCount=0;
+let quizCurrent=null, quizScore=0, quizTotal=0, quizAnswered=false;
+
 function buildDeck() {
   let src = WORDS;
-  if (currentCategory === 'unknown') src = WORDS.filter(w => !learnedSet.has(w.en));
-  else if (currentCategory !== 'all') src = WORDS.filter(w => w.cat === currentCategory);
-  deck = [...src];
-  currentIdx = 0;
-  isFlipped = false;
+  if (currentCategory==='unknown') src=WORDS.filter(w=>!learnedSet.has(w.en));
+  else if (currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
+  deck=[...src]; currentIdx=0; isFlipped=false;
   document.getElementById('card-wrapper').classList.remove('flipped');
-  renderCard();
-  updateStats();
+  resetCtx(); renderCard(); updateStats();
 }
 
 function renderCard() {
   if (!deck.length) {
-    document.getElementById('card-front-word').textContent = '🎉 Все изучены!';
-    document.getElementById('card-back-word').textContent = '';
-    document.getElementById('card-counter').textContent = '0 / 0';
-    document.getElementById('progress-fill').style.width = '0%';
-    document.getElementById('progress-label').textContent = '0 / 0';
-    return;
+    document.getElementById('card-front-word').textContent='🎉 Все изучены!';
+    document.getElementById('card-back-word').textContent='';
+    document.getElementById('card-counter').textContent='0 / 0';
+    document.getElementById('progress-fill').style.width='0%';
+    document.getElementById('progress-label').textContent='0 / 0'; return;
   }
-  const w = deck[currentIdx];
-  document.getElementById('card-front-word').textContent = showEnFirst ? w.en : w.ru;
-  document.getElementById('card-back-word').textContent  = showEnFirst ? w.ru : w.en;
-  document.getElementById('card-back-trans').textContent = '';
-  document.getElementById('card-cat').textContent = CAT_LABELS[w.cat] || w.cat;
-
-  const badge = document.getElementById('card-known-badge');
-  badge.style.display = learnedSet.has(w.en) ? 'block' : 'none';
-
-  const pos = currentIdx + 1, total = deck.length;
-  document.getElementById('card-counter').textContent = `${pos} / ${total}`;
-  document.getElementById('progress-fill').style.width = `${(pos / total) * 100}%`;
-  document.getElementById('progress-label').textContent = `${pos} / ${total}`;
-  document.getElementById('btn-prev').disabled = currentIdx === 0;
-  document.getElementById('btn-next').disabled = currentIdx === deck.length - 1;
-
-  updateHeaderStats();
+  const w=deck[currentIdx];
+  document.getElementById('card-front-word').textContent=showEnFirst?w.en:w.ru;
+  document.getElementById('card-back-word').textContent=showEnFirst?w.ru:w.en;
+  document.getElementById('card-back-trans').textContent='';
+  document.getElementById('card-cat').textContent=CAT[w.cat]||w.cat;
+  document.getElementById('card-known-badge').style.display=learnedSet.has(w.en)?'block':'none';
+  const pos=currentIdx+1, total=deck.length;
+  document.getElementById('card-counter').textContent=`${pos} / ${total}`;
+  document.getElementById('progress-fill').style.width=`${(pos/total)*100}%`;
+  document.getElementById('progress-label').textContent=`${pos} / ${total}`;
+  document.getElementById('btn-prev').disabled=currentIdx===0;
+  document.getElementById('btn-next').disabled=currentIdx===deck.length-1;
+  document.getElementById('hdr-known').textContent=learnedSet.size;
+  document.getElementById('hdr-total').textContent=WORDS.length;
+  if (roundMode) document.getElementById('round-progress-text').textContent=`${pos} / ${total}`;
 }
 
 function flipCard() {
-  if (!deck.length) return;
-  isFlipped = !isFlipped;
-  document.getElementById('card-wrapper').classList.toggle('flipped', isFlipped);
+  if (!deck.length) return; isFlipped=!isFlipped;
+  document.getElementById('card-wrapper').classList.toggle('flipped',isFlipped);
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
-
 function navigate(dir) {
-  if (!deck.length) return;
-  const next = currentIdx + dir;
-  if (next < 0 || next >= deck.length) return;
-  currentIdx = next;
-  isFlipped = false;
+  const next=currentIdx+dir; if (next<0||next>=deck.length) return;
+  currentIdx=next; isFlipped=false;
   document.getElementById('card-wrapper').classList.remove('flipped');
-  renderCard();
+  resetCtx(); renderCard();
 }
-
 function markCard(isKnown) {
-  if (!deck.length) return;
-  const w = deck[currentIdx];
-  if (isKnown) { learnedSet.add(w.en); showToast('✓ Отмечено как изученное'); }
-  else { learnedSet.delete(w.en); showToast('✗ Отмечено как неизученное'); }
-  saveProgress();
-  renderCard();
-  updateStats();
-  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown ? 'success' : 'warning');
-  if (currentIdx < deck.length - 1) setTimeout(() => navigate(1), 300);
+  if (!deck.length) return; const w=deck[currentIdx];
+  if (isKnown){learnedSet.add(w.en);showToast('✓ Отмечено как изученное');}
+  else{learnedSet.delete(w.en);showToast('✗ Отмечено как неизученное');}
+  saveProgress(); renderCard(); updateStats();
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown?'success':'warning');
+  if (currentIdx<deck.length-1) setTimeout(()=>navigate(1),300);
+}
+function onMarkCard(isKnown){ if(roundMode){markRoundCard(isKnown);return;} markCard(isKnown); }
+function shuffleDeck(){
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  currentIdx=0;isFlipped=false;document.getElementById('card-wrapper').classList.remove('flipped');
+  resetCtx();renderCard();showToast('🔀 Перемешано!');
+}
+function toggleLang(){
+  showEnFirst=!showEnFirst;
+  document.getElementById('btn-lang').textContent=showEnFirst?'🔄 Рус → Англ':'🔄 Англ → Рус';
+  isFlipped=false;document.getElementById('card-wrapper').classList.remove('flipped');resetCtx();renderCard();
+}
+function resetProgress(){
+  if(tg){tg.showConfirm('Сбросить весь прогресс?',ok=>{if(ok)doReset();});}
+  else{if(confirm('Сбросить весь прогресс?'))doReset();}
+}
+function doReset(){ learnedSet.clear();saveProgress();buildDeck();updateStats();showToast('↺ Прогресс сброшен'); }
+
+function updateStats(){
+  const total=WORDS.length,known=learnedSet.size,pct=total?Math.round((known/total)*100):0;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-known').textContent=known;
+  document.getElementById('stat-pct').textContent=pct+'%';
+  document.getElementById('hdr-known').textContent=known;
+  document.getElementById('hdr-total').textContent=total;
 }
 
-function shuffleDeck() {
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  currentIdx = 0;
-  isFlipped = false;
-  document.getElementById('card-wrapper').classList.remove('flipped');
-  renderCard();
-  showToast('🔀 Перемешано!');
+function setMode(mode){
+  currentMode=mode;roundMode=false;
+  document.querySelectorAll('.mode-tab').forEach((t,i)=>t.classList.toggle('active',['cards','rounds','quiz','list'][i]===mode));
+  document.getElementById('card-scene').style.display=(mode==='cards'||mode==='rounds')?'block':'none';
+  document.getElementById('nav-row').style.display=mode==='cards'?'flex':'none';
+  document.getElementById('mark-row').style.display=(mode==='cards'||mode==='rounds')?'flex':'none';
+  document.getElementById('card-controls').style.display=mode==='cards'?'flex':'none';
+  document.getElementById('card-progress').style.display=mode==='cards'?'flex':'none';
+  document.getElementById('quiz-section').style.display=mode==='quiz'?'flex':'none';
+  document.getElementById('list-section').style.display=mode==='list'?'flex':'none';
+  document.getElementById('round-banner').style.display=mode==='rounds'?'flex':'none';
+  document.getElementById('tabs').style.display=mode==='rounds'?'none':'flex';
+  if(mode==='quiz')  initQuiz();
+  if(mode==='list')  renderList();
+  if(mode==='rounds')startRounds();
+  if(mode==='cards') buildDeck();
 }
-
-function toggleLang() {
-  showEnFirst = !showEnFirst;
-  document.getElementById('btn-lang').textContent = showEnFirst ? '🔄 Рус → Англ' : '🔄 Англ → Рус';
-  isFlipped = false;
-  document.getElementById('card-wrapper').classList.remove('flipped');
-  renderCard();
-}
-
-function resetProgress() {
-  if (tg) {
-    tg.showPopup({
-      title: 'Сбросить прогресс?',
-      message: 'Все изученные слова будут сброшены.',
-      buttons: [{ id: 'ok', type: 'destructive', text: 'Сбросить' }, { type: 'cancel', text: 'Отмена' }]
-    }, (btnId) => { if (btnId === 'ok') { doReset(); } });
-  } else {
-    if (confirm('Сбросить прогресс?')) doReset();
-  }
-}
-
-function doReset() {
-  learnedSet.clear();
-  saveProgress();
+function setCategory(cat){
+  currentCategory=cat;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.cat===cat));
   buildDeck();
-  showToast('↺ Прогресс сброшен');
 }
 
-// ── CATEGORIES / MODE ─────────────────────────────────────────────────
-function setCategory(cat) {
-  currentCategory = cat;
-  document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
-  buildDeck();
-  if (currentMode === 'quiz') initQuiz();
-  if (currentMode === 'list') renderList();
+// ROUNDS
+function startRounds(){
+  roundMode=true;roundNumber=1;roundUnknown=[];roundKnownCount=0;roundUnknownCount=0;
+  let src=WORDS;
+  if(currentCategory==='unknown') src=WORDS.filter(w=>!learnedSet.has(w.en));
+  else if(currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
+  deck=[...src];
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  currentIdx=0;isFlipped=false;document.getElementById('card-wrapper').classList.remove('flipped');resetCtx();
+  document.getElementById('round-label').textContent=`📖 Раунд ${roundNumber}`;
+  document.getElementById('round-progress-text').textContent=`0 / ${deck.length}`;
+  renderCard();
 }
-
-function setMode(mode) {
-  currentMode = mode;
-  inRounds = false;
-  document.getElementById('round-overlay').style.display = 'none';
-  document.querySelectorAll('.mode-tab').forEach((el, i) => {
-    el.classList.toggle('active', ['cards','rounds','quiz','list'][i] === mode);
-  });
-  const isCard = mode === 'cards' || mode === 'rounds';
-  document.getElementById('card-scene').style.display    = isCard ? '' : 'none';
-  document.getElementById('mark-row').style.display      = isCard ? '' : 'none';
-  document.getElementById('card-progress').style.display = isCard ? '' : 'none';
-  document.getElementById('nav-row').style.display       = mode === 'cards' ? '' : 'none';
-  document.getElementById('card-controls').style.display = mode === 'cards' ? '' : 'none';
-  document.getElementById('round-banner').style.display  = mode === 'rounds' ? 'flex' : 'none';
-  document.getElementById('quiz-section').classList.toggle('active', mode === 'quiz');
-  document.getElementById('list-section').classList.toggle('active', mode === 'list');
-  if (mode === 'quiz')   initQuiz();
-  if (mode === 'list')   renderList();
-  if (mode === 'rounds') startRounds();
-  if (mode === 'cards')  renderCard();
+function markRoundCard(isKnown){
+  if(!deck.length)return; const w=deck[currentIdx];
+  if(isKnown){learnedSet.add(w.en);roundKnownCount++;}
+  else{learnedSet.delete(w.en);roundUnknown.push(w);roundUnknownCount++;}
+  saveProgress();
+  if(currentIdx<deck.length-1){currentIdx++;isFlipped=false;document.getElementById('card-wrapper').classList.remove('flipped');resetCtx();renderCard();}
+  else showRoundSummary();
 }
-
-// ── QUIZ ──────────────────────────────────────────────────────────────
-function getQuizPool() {
-  if (currentCategory === 'unknown') return WORDS.filter(w => !learnedSet.has(w.en));
-  if (currentCategory !== 'all') return WORDS.filter(w => w.cat === currentCategory);
-  return WORDS;
-}
-
-function initQuiz() {
-  quizScore = 0; quizTotal = 0;
-  document.getElementById('quiz-score').textContent = '0';
-  document.getElementById('quiz-total').textContent = '0';
-  nextQuiz();
-}
-
-function nextQuiz() {
-  const pool = getQuizPool();
-  if (pool.length < 4) {
-    document.getElementById('quiz-word').textContent = 'Нужно минимум 4 слова';
-    document.getElementById('quiz-options').innerHTML = '';
-    return;
-  }
-  quizCurrent = pool[Math.floor(Math.random() * pool.length)];
-  quizAnswered = false;
-  document.getElementById('quiz-word').textContent = quizCurrent.en;
-  document.getElementById('quiz-direction').textContent = 'Выберите перевод';
-
-  const wrongs = [];
-  const usedIdx = new Set([WORDS.indexOf(quizCurrent)]);
-  while (wrongs.length < 3) {
-    const i = Math.floor(Math.random() * WORDS.length);
-    if (!usedIdx.has(i)) { usedIdx.add(i); wrongs.push(WORDS[i]); }
-  }
-  const options = [...wrongs, quizCurrent].sort(() => Math.random() - 0.5);
-  const container = document.getElementById('quiz-options');
-  container.innerHTML = '';
-  options.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.className = 'quiz-option';
-    btn.textContent = opt.ru;
-    btn.onclick = () => checkQuiz(btn, opt);
-    container.appendChild(btn);
-  });
-}
-
-function checkQuiz(btn, selected) {
-  if (quizAnswered) return;
-  quizAnswered = true;
-  quizTotal++;
-  document.querySelectorAll('.quiz-option').forEach(b => b.disabled = true);
-  const correct = selected.en === quizCurrent.en;
-  if (correct) {
-    btn.classList.add('correct');
-    quizScore++;
-    showToast('✓ Правильно!');
-    learnedSet.add(quizCurrent.en);
-    saveProgress();
-    updateStats();
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+function showRoundSummary(){
+  document.getElementById('rs-known').textContent=roundKnownCount;
+  document.getElementById('rs-unknown').textContent=roundUnknownCount;
+  if(roundUnknown.length===0){
+    document.getElementById('round-emoji').textContent='🏆';
+    document.getElementById('round-title').textContent='Всё изучено!';
+    document.getElementById('round-desc').textContent='Вы знаете все слова в этом наборе!';
+    document.getElementById('round-next-btn').style.display='none';
   } else {
-    btn.classList.add('wrong');
-    document.querySelectorAll('.quiz-option').forEach(b => { if (b.textContent === quizCurrent.ru) b.classList.add('correct'); });
-    showToast('✗ Неверно');
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    document.getElementById('round-emoji').textContent='✅';
+    document.getElementById('round-title').textContent='Раунд завершён!';
+    document.getElementById('round-desc').textContent=`${roundUnknown.length} слов переходит в следующий раунд`;
+    document.getElementById('round-next-btn').style.display='block';
   }
-  document.getElementById('quiz-score').textContent = quizScore;
-  document.getElementById('quiz-total').textContent = quizTotal;
+  document.getElementById('round-overlay').style.display='flex';
+}
+function nextRound(){
+  document.getElementById('round-overlay').style.display='none';
+  roundNumber++;deck=[...roundUnknown];roundUnknown=[];roundKnownCount=0;roundUnknownCount=0;
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  currentIdx=0;isFlipped=false;document.getElementById('card-wrapper').classList.remove('flipped');resetCtx();
+  document.getElementById('round-label').textContent=`📖 Раунд ${roundNumber}`;
+  document.getElementById('round-progress-text').textContent=`0 / ${deck.length}`;
+  renderCard();
 }
 
-// ── LIST ──────────────────────────────────────────────────────────────
-function renderList(filter = '') {
-  let src = WORDS;
-  if (currentCategory === 'unknown') src = WORDS.filter(w => !learnedSet.has(w.en));
-  else if (currentCategory !== 'all') src = WORDS.filter(w => w.cat === currentCategory);
-  if (filter) { const q = filter.toLowerCase(); src = src.filter(w => w.en.toLowerCase().includes(q) || w.ru.toLowerCase().includes(q)); }
-  const container = document.getElementById('word-list');
-  container.innerHTML = '';
-  src.forEach(w => {
-    const div = document.createElement('div');
-    div.className = 'word-list-item' + (learnedSet.has(w.en) ? ' known' : '');
-    div.innerHTML = `<div><div class="wli-en">${w.en}</div><div class="wli-ru">${w.ru}</div></div><span class="wli-cat">${CAT_LABELS[w.cat]||w.cat}</span>`;
+// QUIZ
+function initQuiz(){
+  quizScore=0;quizTotal=0;quizAnswered=false;
+  document.getElementById('quiz-score').textContent='0';document.getElementById('quiz-total').textContent='0';
+  let src=WORDS;
+  if(currentCategory!=='all'&&currentCategory!=='unknown') src=WORDS.filter(w=>w.cat===currentCategory);
+  deck=[...src];
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  currentIdx=0;renderQuiz();
+}
+function renderQuiz(){
+  if(currentIdx>=deck.length){document.getElementById('quiz-word').textContent='🎉 Тест завершён!';document.getElementById('quiz-options').innerHTML='';return;}
+  quizAnswered=false;quizCurrent=deck[currentIdx];
+  document.getElementById('quiz-direction').textContent=showEnFirst?'Выберите перевод':'Choose the word';
+  document.getElementById('quiz-word').textContent=showEnFirst?quizCurrent.en:quizCurrent.ru;
+  const pool=WORDS.filter(w=>w.en!==quizCurrent.en),wrong=[];
+  while(wrong.length<3){const r=pool[Math.floor(Math.random()*pool.length)];if(!wrong.find(w=>w.en===r.en))wrong.push(r);}
+  const opts=[...wrong,quizCurrent].sort(()=>Math.random()-.5);
+  const container=document.getElementById('quiz-options');container.innerHTML='';
+  opts.forEach(opt=>{const btn=document.createElement('button');btn.className='quiz-opt';btn.textContent=showEnFirst?opt.ru:opt.en;btn.onclick=()=>checkQuiz(btn,opt);container.appendChild(btn);});
+}
+function checkQuiz(btn,opt){
+  if(quizAnswered)return;quizAnswered=true;quizTotal++;
+  const correct=opt.en===quizCurrent.en;
+  if(correct){quizScore++;btn.classList.add('correct');}
+  else{btn.classList.add('wrong');document.querySelectorAll('.quiz-opt').forEach(b=>{if(b.textContent===(showEnFirst?quizCurrent.ru:quizCurrent.en))b.classList.add('correct');});}
+  document.getElementById('quiz-score').textContent=quizScore;document.getElementById('quiz-total').textContent=quizTotal;
+  if(tg?.HapticFeedback)tg.HapticFeedback.notificationOccurred(correct?'success':'error');
+}
+function nextQuiz(){currentIdx++;renderQuiz();}
+
+// LIST
+function renderList(filter=''){
+  const lf=filter.toLowerCase();
+  const items=WORDS.filter(w=>!filter||w.en.toLowerCase().includes(lf)||w.ru.toLowerCase().includes(lf));
+  const container=document.getElementById('word-list');container.innerHTML='';
+  items.forEach(w=>{
+    const div=document.createElement('div');div.className='word-item'+(learnedSet.has(w.en)?' known':'');
+    div.innerHTML=`<span class="word-en">${w.en}</span><span class="word-ru">${w.ru}</span><span class="word-badge">${CAT[w.cat]||w.cat}</span>${learnedSet.has(w.en)?'<span class="word-check">✓</span>':''}`;
     container.appendChild(div);
   });
 }
+function filterList(){renderList(document.getElementById('search-input').value);}
 
-function filterList() { renderList(document.getElementById('search-input').value); }
-
-// ── STATS ─────────────────────────────────────────────────────────────
-function updateStats() {
-  const total = WORDS.length, known = learnedSet.size;
-  document.getElementById('stat-total').textContent = total;
-  document.getElementById('stat-known').textContent = known;
-  document.getElementById('stat-pct').textContent = Math.round((known/total)*100) + '%';
-  updateHeaderStats();
-}
-
-function updateHeaderStats() {
-  document.getElementById('hdr-total').textContent = WORDS.length;
-  document.getElementById('hdr-known').textContent = learnedSet.size;
-}
-
-// ── TOAST ─────────────────────────────────────────────────────────────
+// TOAST
 let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2000);
 }
 
-// ── ROUNDS ────────────────────────────────────────────────────────────
-let inRounds = false, roundNumber = 1, roundDeck = [], roundPos = 0, roundUnknown = [];
-
-function startRounds() {
-  document.getElementById('round-overlay').style.display = 'none';
-  let src = WORDS;
-  if (currentCategory === 'unknown') src = WORDS.filter(w => !learnedSet.has(w.en));
-  else if (currentCategory !== 'all') src = WORDS.filter(w => w.cat === currentCategory);
-  if (!src.length) { showToast('Нет слов для изучения'); return; }
-  roundDeck = [...src].sort(() => Math.random() - 0.5);
-  roundPos = 0; roundNumber = 1; roundUnknown = [];
-  inRounds = true;
-  showRoundCard();
-}
-
-function showRoundCard() {
-  if (roundPos >= roundDeck.length) { showRoundSummary(); return; }
-  const w = roundDeck[roundPos];
-  isFlipped = false;
-  document.getElementById('card-wrapper').classList.remove('flipped');
-  document.getElementById('card-front-word').textContent = showEnFirst ? w.en : w.ru;
-  document.getElementById('card-back-word').textContent  = showEnFirst ? w.ru : w.en;
-  document.getElementById('card-back-trans').textContent = '';
-  document.getElementById('card-cat').textContent = CAT_LABELS[w.cat] || w.cat;
-  document.getElementById('card-known-badge').style.display = 'none';
-  const pos = roundPos + 1, total = roundDeck.length;
-  document.getElementById('round-label').textContent = `📖 Раунд ${roundNumber}`;
-  document.getElementById('round-progress-text').textContent = `${pos} / ${total}`;
-  document.getElementById('progress-fill').style.width = `${(pos / total) * 100}%`;
-  document.getElementById('progress-label').textContent = `${pos} / ${total}`;
-  updateHeaderStats();
-}
-
-function onMarkCard(isKnown) {
-  if (inRounds) markRoundCard(isKnown);
-  else markCard(isKnown);
-}
-
-function markRoundCard(isKnown) {
-  if (!roundDeck.length) return;
-  const w = roundDeck[roundPos];
-  if (isKnown) learnedSet.add(w.en);
-  else { roundUnknown.push(w); learnedSet.delete(w.en); }
-  saveProgress(); updateStats();
-  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown ? 'success' : 'warning');
-  roundPos++;
-  setTimeout(showRoundCard, 250);
-}
-
-function showRoundSummary() {
-  const known = roundDeck.length - roundUnknown.length;
-  const unknown = roundUnknown.length;
-  const allDone = unknown === 0;
-  document.getElementById('round-emoji').textContent = allDone ? '🎉' : '✅';
-  document.getElementById('round-title').textContent = allDone ? 'Все слова изучены!' : `Раунд ${roundNumber} завершён!`;
-  document.getElementById('round-desc').textContent  = allDone
-    ? 'Отличная работа! Цикл начнётся заново.'
-    : `В следующем раунде ${unknown} ${plural(unknown, 'слово','слова','слов')} для повторения.`;
-  document.getElementById('rs-known').textContent   = known;
-  document.getElementById('rs-unknown').textContent = unknown;
-  document.getElementById('round-next-btn').style.display = allDone ? 'none' : '';
-  document.getElementById('round-overlay').style.display  = 'flex';
-}
-
-function nextRound() {
-  roundDeck = [...roundUnknown].sort(() => Math.random() - 0.5);
-  roundPos = 0; roundNumber++; roundUnknown = [];
-  document.getElementById('round-overlay').style.display = 'none';
-  showRoundCard();
-}
-
-function plural(n, one, few, many) {
-  const mod10 = n % 10, mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
-  return many;
-}
-
-// ── KEYBOARD (desktop fallback) ───────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (currentMode === 'cards') {
-    if (e.key === 'ArrowRight') navigate(1);
-    if (e.key === 'ArrowLeft')  navigate(-1);
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
-    if (e.key === '1') markCard(false);
-    if (e.key === '2') markCard(true);
-  }
-  if (currentMode === 'rounds') {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
-    if (e.key === '1') markRoundCard(false);
-    if (e.key === '2') markRoundCard(true);
-  }
-  if (currentMode === 'quiz' && (e.key === 'Enter' || e.key === 'ArrowRight')) nextQuiz();
+document.addEventListener('keydown',e=>{
+  if(currentMode!=='cards')return;
+  if(e.key==='ArrowLeft') navigate(-1);
+  if(e.key==='ArrowRight')navigate(1);
+  if(e.key===' ')         flipCard();
+  if(e.key==='1')         onMarkCard(false);
+  if(e.key==='2')         onMarkCard(true);
 });
 </script>
 </body>

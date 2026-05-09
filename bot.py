@@ -17,11 +17,10 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
-        [InlineKeyboardButton("📚 Тематический набор (164 слова)", web_app=WebAppInfo(url=WEBAPP_URL))],
-        [InlineKeyboardButton("🎓 B2 словарь (500 слов)", web_app=WebAppInfo(url=WEBAPP_URL.rstrip("/") + "/b2/"))],
+        [InlineKeyboardButton("✦ Открыть Flashcards", web_app=WebAppInfo(url=WEBAPP_URL))],
     ]
     await update.message.reply_text(
-        "👋 Привет!\n\nВыбери набор для изучения:",
+        "👋 Привет!\n\nВыбери нужные наборы и начни изучение:",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
