@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+<title>Flashcards</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       var(--tg-theme-bg-color, #0f1117);
+    --surface:  var(--tg-theme-secondary-bg-color, #1a1d27);
+    --text:     var(--tg-theme-text-color, #e8eaf6);
+    --muted:    var(--tg-theme-hint-color, #7b82b0);
+    --accent:   var(--tg-theme-button-color, #4f6ef7);
+    --accent-t: var(--tg-theme-button-text-color, #ffffff);
+    --link:     var(--tg-theme-link-color, #5e97f6);
+    --green:    #2ecc71;
+    --red:      #e74c3c;
+    --yellow:   #f39c12;
+    --border:   rgba(128,128,128,0.2);
+    --radius:   16px;
+    --shadow:   0 4px 24px rgba(0,0,0,0.25);
+  }
+
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── HEADER ── */
+  header {
+    width: 100%;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .header-stats strong { color: var(--text); }
+
+  /* ── MAIN ── */
+  main {
+    width: 100%;
+    max-width: 600px;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* ── STATS PANEL ── */
+  .stats-panel {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+
+  .stat-card .val {
+    font-size: 26px;
+    font-weight: 700;
+    display: block;
+  }
+
+  .stat-card .val.blue   { color: var(--accent); }
+  .stat-card .val.green  { color: var(--green); }
+  .stat-card .val.yellow { color: var(--yellow); }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* ── MODE TABS ── */
+  .mode-tabs {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .mode-tab {
+    flex: 1;
+    padding: 9px 4px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .mode-tab.active { background: var(--accent); color: var(--accent-t); }
+
+  /* ── CATEGORY TABS ── */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .tab {
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-t); }
+
+  /* ── CONTROLS ── */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  /* ── PROGRESS ── */
+  .progress-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .progress-bar-wrap {
+    flex: 1;
+    height: 5px;
+    background: var(--surface);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-label { font-size: 12px; color: var(--muted); min-width: 48px; text-align: right; }
+
+  /* ── CARD ── */
+  .card-scene {
+    width: 100%;
+    perspective: 1000px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .card-wrapper {
+    position: relative;
+    width: 100%;
+    padding-bottom: 58%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-wrapper.flipped { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    gap: 10px;
+  }
+
+  .card-front { background: var(--surface); }
+  .card-back  { background: var(--surface); border-color: var(--accent); transform: rotateY(180deg); }
+
+  .card-badge {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+  }
+
+  .card-known-badge {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--green);
+    background: rgba(46,204,113,0.12);
+    border: 1px solid var(--green);
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+
+  .card-hint {
+    position: absolute;
+    bottom: 12px;
+    font-size: 10px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .card-word {
+    font-size: clamp(20px, 5vw, 34px);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .card-front .card-word { color: var(--text); }
+  .card-back  .card-word { color: var(--link); }
+  .card-translation { font-size: clamp(14px, 3vw, 18px); color: var(--muted); text-align: center; line-height: 1.4; font-style: italic; }
+
+  /* ── NAV ── */
+  .nav-row { display: flex; align-items: center; gap: 16px; }
+
+  .nav-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-btn:active { transform: scale(0.93); }
+  .nav-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+  .card-counter { font-size: 16px; font-weight: 600; color: var(--muted); min-width: 70px; text-align: center; }
+
+  /* ── MARK BUTTONS ── */
+  .mark-row { display: flex; gap: 12px; justify-content: center; width: 100%; }
+
+  .mark-btn {
+    flex: 1; max-width: 180px;
+    padding: 13px;
+    border-radius: var(--radius);
+    border: 2px solid;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mark-btn:active { transform: scale(0.96); }
+  .mark-btn.unknown { border-color: var(--red);   background: rgba(231,76,60,0.1);  color: var(--red); }
+  .mark-btn.known   { border-color: var(--green); background: rgba(46,204,113,0.1); color: var(--green); }
+
+  /* ── QUIZ ── */
+  .quiz-section { width: 100%; display: none; flex-direction: column; gap: 12px; }
+  .quiz-section.active { display: flex; }
+
+  .quiz-question {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  .quiz-question h3 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .quiz-word { font-size: clamp(20px, 5vw, 30px); font-weight: 700; }
+
+  .quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .quiz-option {
+    padding: 14px 10px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    line-height: 1.4;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .quiz-option:active { transform: scale(0.97); }
+  .quiz-option.correct { border-color: var(--green); background: rgba(46,204,113,0.15); color: var(--green); }
+  .quiz-option.wrong   { border-color: var(--red);   background: rgba(231,76,60,0.15);  color: var(--red); }
+  .quiz-option:disabled { cursor: not-allowed; }
+
+  .quiz-footer { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .quiz-score-line { font-size: 13px; color: var(--muted); }
+  .quiz-score-line strong { color: var(--text); }
+
+  /* ── LIST ── */
+  .list-section { width: 100%; display: none; flex-direction: column; gap: 8px; }
+  .list-section.active { display: flex; }
+
+  .search-bar {
+    width: 100%;
+    padding: 11px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .search-bar:focus { border-color: var(--accent); }
+  .search-bar::placeholder { color: var(--muted); }
+
+  .word-list-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .word-list-item.known  { border-left-color: var(--green); }
+  .wli-en  { font-weight: 600; font-size: 14px; }
+  .wli-ru  { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .wli-cat {
+    font-size: 10px; color: var(--muted);
+    background: var(--bg); padding: 2px 7px;
+    border-radius: 100px; border: 1px solid var(--border);
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 999;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── LOADING ── */
+  #loading {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.3s;
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .quiz-options { grid-template-columns: 1fr; }
+    .stats-panel  { grid-template-columns: 1fr 1fr 1fr; }
+    .card-wrapper { padding-bottom: 65%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<header>
+  <div class="logo">✦ Flashcards</div>
+  <div class="header-stats">
+    <span style="color:var(--green)">✓ <strong id="hdr-known">0</strong></span>
+    <span>/ <strong id="hdr-total">0</strong></span>
+  </div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-panel">
+    <div class="stat-card"><span class="val blue" id="stat-total">0</span><div class="lbl">Всего</div></div>
+    <div class="stat-card"><span class="val green" id="stat-known">0</span><div class="lbl">Изучено</div></div>
+    <div class="stat-card"><span class="val yellow" id="stat-pct">0%</span><div class="lbl">Прогресс</div></div>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="mode-tabs">
+    <div class="mode-tab active" onclick="setMode('cards')">🃏 Карточки</div>
+    <div class="mode-tab" onclick="setMode('quiz')">🧠 Тест</div>
+    <div class="mode-tab" onclick="setMode('list')">📋 Список</div>
+  </div>
+
+  <!-- Category tabs -->
+  <div class="tabs">
+    <div class="tab active" data-cat="all" onclick="setCategory('all')">Все</div>
+    <div class="tab" data-cat="adj_adv" onclick="setCategory('adj_adv')">Прил./Нар.</div>
+    <div class="tab" data-cat="noun" onclick="setCategory('noun')">Сущ.</div>
+    <div class="tab" data-cat="verb" onclick="setCategory('verb')">Глаг.</div>
+    <div class="tab" data-cat="phrase" onclick="setCategory('phrase')">Фразы</div>
+    <div class="tab" data-cat="unknown" onclick="setCategory('unknown')">Новые</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls" id="card-controls">
+    <button class="btn" onclick="shuffleDeck()">🔀 Перемешать</button>
+    <button class="btn" id="btn-lang" onclick="toggleLang()">🔄 Рус → Англ</button>
+    <button class="btn" onclick="resetProgress()">↺ Сбросить</button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-row" id="card-progress">
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-label" id="progress-label">0 / 0</div>
+  </div>
+
+  <!-- CARDS MODE -->
+  <div class="card-scene" id="card-scene" onclick="flipCard()">
+    <div class="card-wrapper" id="card-wrapper">
+      <div class="card-face card-front">
+        <div class="card-badge" id="card-cat">...</div>
+        <div class="card-known-badge" id="card-known-badge" style="display:none">✓ Знаю</div>
+        <div class="card-word" id="card-front-word">—</div>
+        <div class="card-hint">Нажмите чтобы перевернуть</div>
+      </div>
+      <div class="card-face card-back">
+        <div class="card-word" id="card-back-word">—</div>
+        <div class="card-translation" id="card-back-trans"></div>
+        <div class="card-hint">Нажмите чтобы перевернуть</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav row -->
+  <div class="nav-row" id="nav-row">
+    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">‹</button>
+    <div class="card-counter" id="card-counter">1 / 1</div>
+    <button class="nav-btn" id="btn-next" onclick="navigate(1)">›</button>
+  </div>
+
+  <!-- Mark buttons -->
+  <div class="mark-row" id="mark-row">
+    <button class="mark-btn unknown" onclick="markCard(false)">✗ Не знаю</button>
+    <button class="mark-btn known"   onclick="markCard(true)">✓ Знаю</button>
+  </div>
+
+  <!-- QUIZ MODE -->
+  <div class="quiz-section" id="quiz-section">
+    <div class="quiz-question">
+      <h3 id="quiz-direction">Выберите перевод</h3>
+      <div class="quiz-word" id="quiz-word">—</div>
+    </div>
+    <div class="quiz-options" id="quiz-options"></div>
+    <div class="quiz-footer">
+      <button class="btn" onclick="nextQuiz()">→ Следующий</button>
+      <button class="btn" onclick="initQuiz()">🔀 Заново</button>
+    </div>
+    <div class="quiz-score-line" style="text-align:center">
+      Очков: <strong id="quiz-score">0</strong> / <strong id="quiz-total">0</strong>
+    </div>
+  </div>
+
+  <!-- LIST MODE -->
+  <div class="list-section" id="list-section">
+    <input type="text" class="search-bar" id="search-input" placeholder="🔍 Поиск..." oninput="filterList()">
+    <div id="word-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── TELEGRAM SETUP ────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+
+// ── STORAGE (CloudStorage with localStorage fallback) ─────────────────
+const storage = {
+  get(key, cb) {
+    if (tg?.CloudStorage) {
+      tg.CloudStorage.getItem(key, (err, val) => cb(val || null));
+    } else {
+      cb(localStorage.getItem(key));
+    }
+  },
+  set(key, val) {
+    if (tg?.CloudStorage) {
+      tg.CloudStorage.setItem(key, val);
+    } else {
+      localStorage.setItem(key, val);
+    }
+  }
+};
+
+// ── VOCABULARY DATA ───────────────────────────────────────────────────
+const WORDS = [
+  // Adjectives / Adverbs
+  {en:"remarkably",       ru:"примечательно, замечательно",   cat:"adj_adv"},
+  {en:"independent",     ru:"независимый",                   cat:"adj_adv"},
+  {en:"shifting",        ru:"меняющийся, изменчивый",        cat:"adj_adv"},
+  {en:"essential",       ru:"существенный, основной",        cat:"adj_adv"},
+  {en:"abstract",        ru:"абстрактный",                   cat:"adj_adv"},
+  {en:"exceptionally",   ru:"исключительно",                 cat:"adj_adv"},
+  {en:"keen",            ru:"острый, проницательный",        cat:"adj_adv"},
+  {en:"subtle",          ru:"тонкий, едва заметный",         cat:"adj_adv"},
+  {en:"innovative",      ru:"инновационный",                 cat:"adj_adv"},
+  {en:"avant-garde",     ru:"авангардный",                   cat:"adj_adv"},
+  {en:"vigorously",      ru:"энергично, активно",            cat:"adj_adv"},
+  {en:"celebrated",      ru:"знаменитый, прославленный",     cat:"adj_adv"},
+  {en:"dramatic",        ru:"драматический",                 cat:"adj_adv"},
+  {en:"dramatically",    ru:"драматично",                    cat:"adj_adv"},
+  {en:"soaring",         ru:"взмывающий, возвышающийся",     cat:"adj_adv"},
+  {en:"botanical",       ru:"ботанический",                  cat:"adj_adv"},
+  {en:"magnified",       ru:"увеличенный",                   cat:"adj_adv"},
+  {en:"daring",          ru:"смелый, дерзкий",               cat:"adj_adv"},
+  {en:"extended",        ru:"продолжительный",               cat:"adj_adv"},
+  {en:"permanent",       ru:"постоянный",                    cat:"adj_adv"},
+  {en:"permanently",     ru:"постоянно",                     cat:"adj_adv"},
+  {en:"numerous",        ru:"многочисленный",                cat:"adj_adv"},
+  {en:"sun-bleached",    ru:"выбеленный солнцем",            cat:"adj_adv"},
+  {en:"rugged",          ru:"пересечённый, изрезанный",      cat:"adj_adv"},
+  {en:"exquisitely",     ru:"изысканно, утончённо",          cat:"adj_adv"},
+  {en:"weathered",       ru:"выветренный, обветшалый",       cat:"adj_adv"},
+  {en:"jagged",          ru:"зазубренный, неровный",         cat:"adj_adv"},
+  {en:"irregular",       ru:"неправильный, неровный",        cat:"adj_adv"},
+  {en:"convex",          ru:"выпуклый",                      cat:"adj_adv"},
+  {en:"concave",         ru:"вогнутый",                      cat:"adj_adv"},
+  {en:"spectacular",     ru:"впечатляющий, зрелищный",       cat:"adj_adv"},
+  {en:"vivid",           ru:"яркий, живой",                  cat:"adj_adv"},
+  {en:"exotic",          ru:"экзотический",                  cat:"adj_adv"},
+  {en:"striking",        ru:"поразительный, яркий",          cat:"adj_adv"},
+  {en:"nestled",         ru:"расположенный, приютившийся",   cat:"adj_adv"},
+  {en:"expansive",       ru:"обширный, широкий",             cat:"adj_adv"},
+  {en:"monumental",      ru:"монументальный",                cat:"adj_adv"},
+  {en:"enormous",        ru:"огромный, колоссальный",        cat:"adj_adv"},
+  {en:"relatively",      ru:"относительно",                  cat:"adj_adv"},
+  {en:"unproductive",    ru:"непродуктивный",                cat:"adj_adv"},
+  {en:"subsequent",      ru:"последующий",                   cat:"adj_adv"},
+  // Nouns
+  {en:"vision",              ru:"видение, взгляд",                   cat:"noun"},
+  {en:"observation",         ru:"наблюдение",                        cat:"noun"},
+  {en:"finesse",             ru:"изящество, мастерство, тонкость",   cat:"noun"},
+  {en:"nuances",             ru:"нюансы, оттенки",                   cat:"noun"},
+  {en:"cattle breeders",     ru:"скотоводы",                         cat:"noun"},
+  {en:"siblings",            ru:"братья и сёстры",                   cat:"noun"},
+  {en:"techniques",          ru:"техники, методы",                   cat:"noun"},
+  {en:"compositions",        ru:"композиции",                        cat:"noun"},
+  {en:"charcoal",            ru:"древесный уголь",                   cat:"noun"},
+  {en:"gallery",             ru:"галерея",                           cat:"noun"},
+  {en:"encouragement",       ru:"поддержка, одобрение",              cat:"noun"},
+  {en:"decade",              ru:"десятилетие",                       cat:"noun"},
+  {en:"exhibitions",         ru:"выставки",                          cat:"noun"},
+  {en:"installations",       ru:"инсталляции",                       cat:"noun"},
+  {en:"portraits",           ru:"портреты",                          cat:"noun"},
+  {en:"skyscrapers",         ru:"небоскрёбы",                        cat:"noun"},
+  {en:"canvas",              ru:"холст",                             cat:"noun"},
+  {en:"reputation",          ru:"репутация",                         cat:"noun"},
+  {en:"modernist",           ru:"модернист",                         cat:"noun"},
+  {en:"solitude",            ru:"уединение",                         cat:"noun"},
+  {en:"inspiration",         ru:"вдохновение",                       cat:"noun"},
+  {en:"terrain",             ru:"местность, территория",             cat:"noun"},
+  {en:"imagination",         ru:"воображение",                       cat:"noun"},
+  {en:"skull",               ru:"череп",                             cat:"noun"},
+  {en:"surfaces",            ru:"поверхности",                       cat:"noun"},
+  {en:"edges",               ru:"края",                              cat:"noun"},
+  {en:"openings",            ru:"отверстия",                         cat:"noun"},
+  {en:"variation",           ru:"вариация",                          cat:"noun"},
+  {en:"pelvis",              ru:"таз (анатомия)",                    cat:"noun"},
+  {en:"contrasts",           ru:"контрасты",                         cat:"noun"},
+  {en:"landscape",           ru:"пейзаж, ландшафт",                  cat:"noun"},
+  {en:"geological formations",ru:"геологические образования",        cat:"noun"},
+  {en:"clarity",             ru:"ясность, чёткость",                 cat:"noun"},
+  {en:"vegetation",          ru:"растительность",                    cat:"noun"},
+  {en:"retreat",             ru:"убежище, уединённое место",         cat:"noun"},
+  {en:"cliffs",              ru:"утёсы, скалы",                      cat:"noun"},
+  {en:"residence",           ru:"резиденция, местожительство",       cat:"noun"},
+  {en:"locales",             ru:"места, местности",                  cat:"noun"},
+  {en:"imagery",             ru:"образы, образность",                cat:"noun"},
+  {en:"feature",             ru:"особенность, черта",                cat:"noun"},
+  {en:"patio",               ru:"патио, внутренний дворик",          cat:"noun"},
+  {en:"arrangement",         ru:"расположение, композиция",          cat:"noun"},
+  {en:"geometric shapes",    ru:"геометрические фигуры",             cat:"noun"},
+  {en:"aerial views",        ru:"виды с воздуха",                    cat:"noun"},
+  {en:"motifs",              ru:"мотивы",                            cat:"noun"},
+  {en:"assistants",          ru:"ассистенты, помощники",             cat:"noun"},
+  {en:"challenge",           ru:"вызов, задача",                     cat:"noun"},
+  {en:"feat",                ru:"подвиг, достижение",                cat:"noun"},
+  {en:"blindness",           ru:"слепота",                           cat:"noun"},
+  {en:"legacy",              ru:"наследие",                          cat:"noun"},
+  {en:"generations",         ru:"поколения",                         cat:"noun"},
+  // Verbs
+  {en:"remained",       ru:"оставаться",                            cat:"verb"},
+  {en:"enlivened",      ru:"оживлять",                              cat:"verb"},
+  {en:"determined",     ru:"решать, определять",                    cat:"verb"},
+  {en:"experiment",     ru:"экспериментировать",                    cat:"verb"},
+  {en:"exhibited",      ru:"выставлять",                            cat:"verb"},
+  {en:"promoted",       ru:"продвигать",                            cat:"verb"},
+  {en:"recognized",     ru:"признавать",                            cat:"verb"},
+  {en:"depict",         ru:"изображать",                            cat:"verb"},
+  {en:"depicting",      ru:"изображающий",                          cat:"verb"},
+  {en:"emphasized",     ru:"подчёркивать",                          cat:"verb"},
+  {en:"establish",      ru:"устанавливать, основывать",             cat:"verb"},
+  {en:"sparked",        ru:"зажигать, вызывать",                    cat:"verb"},
+  {en:"reproduce",      ru:"воспроизводить",                        cat:"verb"},
+  {en:"focused on",     ru:"сосредоточиться на",                    cat:"verb"},
+  {en:"reinvented",     ru:"переосмысливать, изобретать заново",    cat:"verb"},
+  {en:"translated",     ru:"переносить (в другую форму)",           cat:"verb"},
+  {en:"hindered",       ru:"препятствовать, мешать",                cat:"verb"},
+  {en:"derive",         ru:"получать, черпать",                     cat:"verb"},
+  // Phrases
+  {en:"remained independent from", ru:"оставаться независимым от",              cat:"phrase"},
+  {en:"stayed true to",            ru:"оставаться верным (чему-либо)",          cat:"phrase"},
+  {en:"based on",                  ru:"основанный на",                          cat:"phrase"},
+  {en:"powers of observation",     ru:"способность к наблюдению",               cat:"phrase"},
+  {en:"wide audience",             ru:"широкая аудитория",                      cat:"phrase"},
+  {en:"make her way",              ru:"прокладывать себе путь",                  cat:"phrase"},
+  {en:"led in a new direction",    ru:"направить в новое русло",                cat:"phrase"},
+  {en:"was impressed",             ru:"быть впечатлённым",                      cat:"phrase"},
+  {en:"introduced to the public",  ru:"представлен публике",                    cat:"phrase"},
+  {en:"promise of financial support",ru:"обещание финансовой поддержки",        cat:"phrase"},
+  {en:"ups and downs",             ru:"взлёты и падения",                       cat:"phrase"},
+  {en:"over the course of",        ru:"на протяжении",                          cat:"phrase"},
+  {en:"widely known for",          ru:"широко известный благодаря",             cat:"phrase"},
+  {en:"most often",                ru:"чаще всего",                             cat:"phrase"},
+  {en:"right into the picture",    ru:"прямо в картину",                        cat:"phrase"},
+  {en:"helped establish",          ru:"помог установить",                       cat:"phrase"},
+  {en:"lasting impact",            ru:"длительное влияние",                     cat:"phrase"},
+  {en:"immediate effect",          ru:"немедленный эффект",                     cat:"phrase"},
+  {en:"came across",               ru:"натолкнуться на, обнаружить",            cat:"phrase"},
+  {en:"sparked imagination",       ru:"разжечь воображение",                    cat:"phrase"},
+  {en:"held the imagination",      ru:"захватить воображение",                  cat:"phrase"},
+  {en:"in striking close-up",      ru:"в поразительном крупном плане",          cat:"phrase"},
+  {en:"provided a wealth of",      ru:"предоставить богатство (чего-либо)",     cat:"phrase"},
+  {en:"travelled widely",          ru:"много путешествовать",                   cat:"phrase"},
+  {en:"expanded view",             ru:"расширенный взгляд",                     cat:"phrase"},
+  {en:"with the help of",          ru:"с помощью",                              cat:"phrase"},
+  {en:"nearing (age)",             ru:"приближаясь к (возрасту)",               cat:"phrase"},
+  {en:"ill health",                ru:"плохое здоровье",                        cat:"phrase"},
+  {en:"hindered ability",          ru:"препятствовать способности",             cat:"phrase"},
+  {en:"rich legacy",               ru:"богатое наследие",                       cat:"phrase"},
+  {en:"derive inspiration from",   ru:"черпать вдохновение из",                 cat:"phrase"},
+];
+
+const CAT_LABELS = { adj_adv:"Прил./Нар.", noun:"Существ.", verb:"Глагол", phrase:"Фраза" };
+
+// ── STATE ─────────────────────────────────────────────────────────────
+let deck = [];
+let currentIdx = 0;
+let isFlipped = false;
+let showEnFirst = true;
+let currentMode = 'cards';
+let currentCategory = 'all';
+let learnedSet = new Set();
+let quizCurrent = null;
+let quizScore = 0;
+let quizTotal = 0;
+let quizAnswered = false;
+
+// ── INIT ──────────────────────────────────────────────────────────────
+storage.get('learned', (val) => {
+  learnedSet = new Set(JSON.parse(val || '[]'));
+  buildDeck();
+  updateStats();
+  setMode('cards');
+  document.getElementById('loading').style.opacity = '0';
+  setTimeout(() => document.getElementById('loading').remove(), 300);
+});
+
+// ── PERSISTENCE ───────────────────────────────────────────────────────
+function saveProgress() {
+  storage.set('learned', JSON.stringify([...learnedSet]));
+}
+
+// ── DECK ──────────────────────────────────────────────────────────────
+function buildDeck() {
+  let src = WORDS;
+  if (currentCategory === 'unknown') src = WORDS.filter(w => !learnedSet.has(w.en));
+  else if (currentCategory !== 'all') src = WORDS.filter(w => w.cat === currentCategory);
+  deck = [...src];
+  currentIdx = 0;
+  isFlipped = false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+  updateStats();
+}
+
+function renderCard() {
+  if (!deck.length) {
+    document.getElementById('card-front-word').textContent = '🎉 Все изучены!';
+    document.getElementById('card-back-word').textContent = '';
+    document.getElementById('card-counter').textContent = '0 / 0';
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('progress-label').textContent = '0 / 0';
+    return;
+  }
+  const w = deck[currentIdx];
+  document.getElementById('card-front-word').textContent = showEnFirst ? w.en : w.ru;
+  document.getElementById('card-back-word').textContent  = showEnFirst ? w.ru : w.en;
+  document.getElementById('card-back-trans').textContent = '';
+  document.getElementById('card-cat').textContent = CAT_LABELS[w.cat] || w.cat;
+
+  const badge = document.getElementById('card-known-badge');
+  badge.style.display = learnedSet.has(w.en) ? 'block' : 'none';
+
+  const pos = currentIdx + 1, total = deck.length;
+  document.getElementById('card-counter').textContent = `${pos} / ${total}`;
+  document.getElementById('progress-fill').style.width = `${(pos / total) * 100}%`;
+  document.getElementById('progress-label').textContent = `${pos} / ${total}`;
+  document.getElementById('btn-prev').disabled = currentIdx === 0;
+  document.getElementById('btn-next').disabled = currentIdx === deck.length - 1;
+
+  updateHeaderStats();
+}
+
+function flipCard() {
+  if (!deck.length) return;
+  isFlipped = !isFlipped;
+  document.getElementById('card-wrapper').classList.toggle('flipped', isFlipped);
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function navigate(dir) {
+  if (!deck.length) return;
+  const next = currentIdx + dir;
+  if (next < 0 || next >= deck.length) return;
+  currentIdx = next;
+  isFlipped = false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+}
+
+function markCard(isKnown) {
+  if (!deck.length) return;
+  const w = deck[currentIdx];
+  if (isKnown) { learnedSet.add(w.en); showToast('✓ Отмечено как изученное'); }
+  else { learnedSet.delete(w.en); showToast('✗ Отмечено как неизученное'); }
+  saveProgress();
+  renderCard();
+  updateStats();
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown ? 'success' : 'warning');
+  if (currentIdx < deck.length - 1) setTimeout(() => navigate(1), 300);
+}
+
+function shuffleDeck() {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  currentIdx = 0;
+  isFlipped = false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+  showToast('🔀 Перемешано!');
+}
+
+function toggleLang() {
+  showEnFirst = !showEnFirst;
+  document.getElementById('btn-lang').textContent = showEnFirst ? '🔄 Рус → Англ' : '🔄 Англ → Рус';
+  isFlipped = false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+}
+
+function resetProgress() {
+  if (tg) {
+    tg.showPopup({
+      title: 'Сбросить прогресс?',
+      message: 'Все изученные слова будут сброшены.',
+      buttons: [{ id: 'ok', type: 'destructive', text: 'Сбросить' }, { type: 'cancel', text: 'Отмена' }]
+    }, (btnId) => { if (btnId === 'ok') { doReset(); } });
+  } else {
+    if (confirm('Сбросить прогресс?')) doReset();
+  }
+}
+
+function doReset() {
+  learnedSet.clear();
+  saveProgress();
+  buildDeck();
+  showToast('↺ Прогресс сброшен');
+}
+
+// ── CATEGORIES / MODE ─────────────────────────────────────────────────
+function setCategory(cat) {
+  currentCategory = cat;
+  document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
+  buildDeck();
+  if (currentMode === 'quiz') initQuiz();
+  if (currentMode === 'list') renderList();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach((el, i) => {
+    el.classList.toggle('active', ['cards','quiz','list'][i] === mode);
+  });
+  const cardEls = ['card-scene','nav-row','mark-row','card-progress','card-controls'];
+  cardEls.forEach(id => { document.getElementById(id).style.display = mode === 'cards' ? '' : 'none'; });
+  document.getElementById('quiz-section').classList.toggle('active', mode === 'quiz');
+  document.getElementById('list-section').classList.toggle('active', mode === 'list');
+  if (mode === 'quiz') initQuiz();
+  if (mode === 'list') renderList();
+}
+
+// ── QUIZ ──────────────────────────────────────────────────────────────
+function getQuizPool() {
+  if (currentCategory === 'unknown') return WORDS.filter(w => !learnedSet.has(w.en));
+  if (currentCategory !== 'all') return WORDS.filter(w => w.cat === currentCategory);
+  return WORDS;
+}
+
+function initQuiz() {
+  quizScore = 0; quizTotal = 0;
+  document.getElementById('quiz-score').textContent = '0';
+  document.getElementById('quiz-total').textContent = '0';
+  nextQuiz();
+}
+
+function nextQuiz() {
+  const pool = getQuizPool();
+  if (pool.length < 4) {
+    document.getElementById('quiz-word').textContent = 'Нужно минимум 4 слова';
+    document.getElementById('quiz-options').innerHTML = '';
+    return;
+  }
+  quizCurrent = pool[Math.floor(Math.random() * pool.length)];
+  quizAnswered = false;
+  document.getElementById('quiz-word').textContent = quizCurrent.en;
+  document.getElementById('quiz-direction').textContent = 'Выберите перевод';
+
+  const wrongs = [];
+  const usedIdx = new Set([WORDS.indexOf(quizCurrent)]);
+  while (wrongs.length < 3) {
+    const i = Math.floor(Math.random() * WORDS.length);
+    if (!usedIdx.has(i)) { usedIdx.add(i); wrongs.push(WORDS[i]); }
+  }
+  const options = [...wrongs, quizCurrent].sort(() => Math.random() - 0.5);
+  const container = document.getElementById('quiz-options');
+  container.innerHTML = '';
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-option';
+    btn.textContent = opt.ru;
+    btn.onclick = () => checkQuiz(btn, opt);
+    container.appendChild(btn);
+  });
+}
+
+function checkQuiz(btn, selected) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  quizTotal++;
+  document.querySelectorAll('.quiz-option').forEach(b => b.disabled = true);
+  const correct = selected.en === quizCurrent.en;
+  if (correct) {
+    btn.classList.add('correct');
+    quizScore++;
+    showToast('✓ Правильно!');
+    learnedSet.add(quizCurrent.en);
+    saveProgress();
+    updateStats();
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('.quiz-option').forEach(b => { if (b.textContent === quizCurrent.ru) b.classList.add('correct'); });
+    showToast('✗ Неверно');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+  }
+  document.getElementById('quiz-score').textContent = quizScore;
+  document.getElementById('quiz-total').textContent = quizTotal;
+}
+
+// ── LIST ──────────────────────────────────────────────────────────────
+function renderList(filter = '') {
+  let src = WORDS;
+  if (currentCategory === 'unknown') src = WORDS.filter(w => !learnedSet.has(w.en));
+  else if (currentCategory !== 'all') src = WORDS.filter(w => w.cat === currentCategory);
+  if (filter) { const q = filter.toLowerCase(); src = src.filter(w => w.en.toLowerCase().includes(q) || w.ru.toLowerCase().includes(q)); }
+  const container = document.getElementById('word-list');
+  container.innerHTML = '';
+  src.forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'word-list-item' + (learnedSet.has(w.en) ? ' known' : '');
+    div.innerHTML = `<div><div class="wli-en">${w.en}</div><div class="wli-ru">${w.ru}</div></div><span class="wli-cat">${CAT_LABELS[w.cat]||w.cat}</span>`;
+    container.appendChild(div);
+  });
+}
+
+function filterList() { renderList(document.getElementById('search-input').value); }
+
+// ── STATS ─────────────────────────────────────────────────────────────
+function updateStats() {
+  const total = WORDS.length, known = learnedSet.size;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-known').textContent = known;
+  document.getElementById('stat-pct').textContent = Math.round((known/total)*100) + '%';
+  updateHeaderStats();
+}
+
+function updateHeaderStats() {
+  document.getElementById('hdr-total').textContent = WORDS.length;
+  document.getElementById('hdr-known').textContent = learnedSet.size;
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ── KEYBOARD (desktop fallback) ───────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (currentMode === 'cards') {
+    if (e.key === 'ArrowRight') navigate(1);
+    if (e.key === 'ArrowLeft')  navigate(-1);
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+    if (e.key === '1') markCard(false);
+    if (e.key === '2') markCard(true);
+  }
+  if (currentMode === 'quiz' && (e.key === 'Enter' || e.key === 'ArrowRight')) nextQuiz();
+});
+</script>
+</body>
+</html>
