@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+<title>B2 Flashcards</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      var(--tg-theme-bg-color, #0f1117);
+    --surface: var(--tg-theme-secondary-bg-color, #1a1d27);
+    --text:    var(--tg-theme-text-color, #e8eaf6);
+    --muted:   var(--tg-theme-hint-color, #7b82b0);
+    --accent:  var(--tg-theme-button-color, #4f6ef7);
+    --acc-t:   var(--tg-theme-button-text-color, #ffffff);
+    --link:    var(--tg-theme-link-color, #5e97f6);
+    --green:   #2ecc71;
+    --red:     #e74c3c;
+    --yellow:  #f39c12;
+    --border:  rgba(128,128,128,0.2);
+    --radius:  16px;
+    --shadow:  0 4px 24px rgba(0,0,0,0.25);
+  }
+  html,body { height:100%; overscroll-behavior:none; }
+  body { font-family:-apple-system,'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+
+  header { width:100%; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
+  .logo { font-size:17px; font-weight:700; color:var(--accent); }
+  .logo span { font-size:12px; font-weight:500; color:var(--muted); margin-left:6px; }
+  .header-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
+  .header-stats strong { color:var(--text); }
+
+  main { width:100%; max-width:600px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+
+  .stats-panel { width:100%; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 10px; text-align:center; }
+  .stat-card .val { font-size:26px; font-weight:700; display:block; }
+  .val.blue { color:var(--accent); } .val.green { color:var(--green); } .val.yellow { color:var(--yellow); }
+  .stat-card .lbl { font-size:11px; color:var(--muted); margin-top:3px; }
+
+  .mode-tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:4px; gap:4px; width:100%; }
+  .mode-tab { flex:1; padding:9px 4px; border-radius:9px; border:none; background:transparent; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; text-align:center; }
+  .mode-tab.active { background:var(--accent); color:var(--acc-t); }
+
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%; }
+  .tab { padding:6px 14px; border-radius:100px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:12px; font-weight:500; cursor:pointer; transition:all .2s; }
+  .tab.active { background:var(--accent); border-color:var(--accent); color:var(--acc-t); }
+
+  .controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; }
+  .btn { padding:8px 16px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12px; font-weight:500; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:5px; }
+  .btn:active { transform:scale(.97); }
+
+  .progress-row { width:100%; display:flex; align-items:center; gap:10px; }
+  .progress-bar-wrap { flex:1; height:5px; background:var(--surface); border-radius:100px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:var(--accent); border-radius:100px; transition:width .4s ease; }
+  .progress-label { font-size:12px; color:var(--muted); min-width:48px; text-align:right; }
+
+  .card-scene { width:100%; perspective:1000px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .card-wrapper { position:relative; width:100%; padding-bottom:58%; transform-style:preserve-3d; transition:transform .5s cubic-bezier(.4,0,.2,1); }
+  .card-wrapper.flipped { transform:rotateY(180deg); }
+  .card-face { position:absolute; inset:0; border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 20px; backface-visibility:hidden; -webkit-backface-visibility:hidden; box-shadow:var(--shadow); border:1px solid var(--border); gap:10px; }
+  .card-front { background:var(--surface); }
+  .card-back  { background:var(--surface); border-color:var(--accent); transform:rotateY(180deg); }
+  .card-badge { position:absolute; top:12px; left:14px; font-size:10px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); background:var(--bg); padding:3px 8px; border-radius:100px; border:1px solid var(--border); }
+  .card-known-badge { position:absolute; top:12px; right:14px; font-size:10px; font-weight:700; color:var(--green); background:rgba(46,204,113,.12); border:1px solid var(--green); padding:3px 8px; border-radius:100px; }
+  .card-hint { position:absolute; bottom:12px; font-size:10px; color:var(--muted); pointer-events:none; }
+  .card-word { font-size:clamp(20px,5vw,34px); font-weight:700; text-align:center; line-height:1.2; }
+  .card-front .card-word { color:var(--text); }
+  .card-back  .card-word { color:var(--link); }
+  .card-translation { font-size:clamp(14px,3vw,18px); color:var(--muted); text-align:center; line-height:1.4; font-style:italic; }
+
+  .nav-row { display:flex; align-items:center; gap:16px; }
+  .nav-btn { width:44px; height:44px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; -webkit-tap-highlight-color:transparent; }
+  .nav-btn:active { transform:scale(.93); }
+  .nav-btn:disabled { opacity:.3; pointer-events:none; }
+  .card-counter { font-size:16px; font-weight:600; color:var(--muted); min-width:70px; text-align:center; }
+
+  .mark-row { display:flex; gap:12px; justify-content:center; width:100%; }
+  .mark-btn { flex:1; max-width:180px; padding:13px; border-radius:var(--radius); border:2px solid; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px; -webkit-tap-highlight-color:transparent; }
+  .mark-btn:active { transform:scale(.96); }
+  .mark-btn.unknown { border-color:var(--red);   background:rgba(231,76,60,.1);  color:var(--red); }
+  .mark-btn.known   { border-color:var(--green); background:rgba(46,204,113,.1); color:var(--green); }
+
+  .quiz-section { width:100%; display:none; flex-direction:column; gap:12px; }
+  .quiz-section.active { display:flex; }
+  .quiz-question { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px 20px; text-align:center; }
+  .quiz-question h3 { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+  .quiz-word { font-size:clamp(20px,5vw,30px); font-weight:700; }
+  .quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .quiz-option { padding:14px 10px; border-radius:12px; border:2px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; cursor:pointer; transition:all .2s; text-align:center; line-height:1.4; -webkit-tap-highlight-color:transparent; }
+  .quiz-option:active { transform:scale(.97); }
+  .quiz-option.correct { border-color:var(--green); background:rgba(46,204,113,.15); color:var(--green); }
+  .quiz-option.wrong   { border-color:var(--red);   background:rgba(231,76,60,.15);  color:var(--red); }
+  .quiz-option:disabled { cursor:not-allowed; }
+  .quiz-footer { display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; }
+  .quiz-score-line { font-size:13px; color:var(--muted); text-align:center; }
+  .quiz-score-line strong { color:var(--text); }
+
+  .list-section { width:100%; display:none; flex-direction:column; gap:8px; }
+  .list-section.active { display:flex; }
+  .search-bar { width:100%; padding:11px 16px; background:var(--surface); border:1px solid var(--border); border-radius:12px; color:var(--text); font-size:14px; outline:none; transition:border-color .2s; -webkit-appearance:none; appearance:none; }
+  .search-bar:focus { border-color:var(--accent); }
+  .search-bar::placeholder { color:var(--muted); }
+  .word-list-item { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border); border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .word-list-item.known { border-left-color:var(--green); }
+  .wli-en  { font-weight:600; font-size:14px; }
+  .wli-ru  { color:var(--muted); font-size:13px; margin-top:2px; }
+  .wli-cat { font-size:10px; color:var(--muted); background:var(--bg); padding:2px 7px; border-radius:100px; border:1px solid var(--border); white-space:nowrap; flex-shrink:0; }
+
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(16px); background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 20px; border-radius:100px; font-size:13px; font-weight:500; box-shadow:var(--shadow); opacity:0; transition:all .3s ease; z-index:999; pointer-events:none; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  #loading { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:9999; transition:opacity .3s; }
+  .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  @media(max-width:480px) { .quiz-options { grid-template-columns:1fr; } .card-wrapper { padding-bottom:65%; } }
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div></div>
+
+<header>
+  <div class="logo">✦ Flashcards <span>B2 · 500 слов</span></div>
+  <div class="header-stats">
+    <span style="color:var(--green)">✓ <strong id="hdr-known">0</strong></span>
+    <span>/ <strong id="hdr-total">0</strong></span>
+  </div>
+</header>
+
+<main>
+  <div class="stats-panel">
+    <div class="stat-card"><span class="val blue" id="stat-total">0</span><div class="lbl">Всего</div></div>
+    <div class="stat-card"><span class="val green" id="stat-known">0</span><div class="lbl">Изучено</div></div>
+    <div class="stat-card"><span class="val yellow" id="stat-pct">0%</span><div class="lbl">Прогресс</div></div>
+  </div>
+
+  <div class="mode-tabs">
+    <div class="mode-tab active" onclick="setMode('cards')">🃏 Карточки</div>
+    <div class="mode-tab" onclick="setMode('quiz')">🧠 Тест</div>
+    <div class="mode-tab" onclick="setMode('list')">📋 Список</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-cat="all"     onclick="setCategory('all')">Все</div>
+    <div class="tab" data-cat="verb"           onclick="setCategory('verb')">Глаголы</div>
+    <div class="tab" data-cat="noun"           onclick="setCategory('noun')">Сущ.</div>
+    <div class="tab" data-cat="adj"            onclick="setCategory('adj')">Прил.</div>
+    <div class="tab" data-cat="adv"            onclick="setCategory('adv')">Нареч.</div>
+    <div class="tab" data-cat="phrase"         onclick="setCategory('phrase')">Фразы</div>
+    <div class="tab" data-cat="unknown"        onclick="setCategory('unknown')">Новые</div>
+  </div>
+
+  <div class="controls" id="card-controls">
+    <button class="btn" onclick="shuffleDeck()">🔀 Перемешать</button>
+    <button class="btn" id="btn-lang" onclick="toggleLang()">🔄 Рус → Англ</button>
+    <button class="btn" onclick="resetProgress()">↺ Сбросить</button>
+  </div>
+
+  <div class="progress-row" id="card-progress">
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-label" id="progress-label">0 / 0</div>
+  </div>
+
+  <div class="card-scene" id="card-scene" onclick="flipCard()">
+    <div class="card-wrapper" id="card-wrapper">
+      <div class="card-face card-front">
+        <div class="card-badge" id="card-cat">...</div>
+        <div class="card-known-badge" id="card-known-badge" style="display:none">✓ Знаю</div>
+        <div class="card-word" id="card-front-word">—</div>
+        <div class="card-hint">Нажмите чтобы перевернуть</div>
+      </div>
+      <div class="card-face card-back">
+        <div class="card-word" id="card-back-word">—</div>
+        <div class="card-translation" id="card-back-trans"></div>
+        <div class="card-hint">Нажмите чтобы перевернуть</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-row" id="nav-row">
+    <button class="nav-btn" id="btn-prev" onclick="navigate(-1)">‹</button>
+    <div class="card-counter" id="card-counter">1 / 1</div>
+    <button class="nav-btn" id="btn-next" onclick="navigate(1)">›</button>
+  </div>
+
+  <div class="mark-row" id="mark-row">
+    <button class="mark-btn unknown" onclick="markCard(false)">✗ Не знаю</button>
+    <button class="mark-btn known"   onclick="markCard(true)">✓ Знаю</button>
+  </div>
+
+  <div class="quiz-section" id="quiz-section">
+    <div class="quiz-question">
+      <h3 id="quiz-direction">Выберите перевод</h3>
+      <div class="quiz-word" id="quiz-word">—</div>
+    </div>
+    <div class="quiz-options" id="quiz-options"></div>
+    <div class="quiz-footer">
+      <button class="btn" onclick="nextQuiz()">→ Следующий</button>
+      <button class="btn" onclick="initQuiz()">🔀 Заново</button>
+    </div>
+    <div class="quiz-score-line">Очков: <strong id="quiz-score">0</strong> / <strong id="quiz-total">0</strong></div>
+  </div>
+
+  <div class="list-section" id="list-section">
+    <input type="text" class="search-bar" id="search-input" placeholder="🔍 Поиск..." oninput="filterList()">
+    <div id="word-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const storage = {
+  get(key,cb) { if(tg?.CloudStorage) tg.CloudStorage.getItem(key,(e,v)=>cb(v||null)); else cb(localStorage.getItem(key)); },
+  set(key,val) { if(tg?.CloudStorage) tg.CloudStorage.setItem(key,val); else localStorage.setItem(key,val); }
+};
+
+const CAT = { verb:"Глагол", noun:"Существ.", adj:"Прилаг.", adv:"Наречие", phrase:"Фраза" };
+
+const WORDS = [
+  // ── VERBS (120) ───────────────────────────────────────────────────
+  {en:"abandon",       ru:"бросать, покидать",             cat:"verb"},
+  {en:"accomplish",    ru:"достигать, выполнять",          cat:"verb"},
+  {en:"accumulate",    ru:"накапливать",                   cat:"verb"},
+  {en:"acknowledge",   ru:"признавать",                   cat:"verb"},
+  {en:"acquire",       ru:"приобретать",                  cat:"verb"},
+  {en:"adapt",         ru:"адаптироваться",               cat:"verb"},
+  {en:"advocate",      ru:"выступать за",                 cat:"verb"},
+  {en:"affect",        ru:"влиять на",                    cat:"verb"},
+  {en:"allocate",      ru:"распределять",                 cat:"verb"},
+  {en:"analyse",       ru:"анализировать",                cat:"verb"},
+  {en:"anticipate",    ru:"предвидеть",                   cat:"verb"},
+  {en:"assess",        ru:"оценивать",                    cat:"verb"},
+  {en:"assume",        ru:"предполагать",                 cat:"verb"},
+  {en:"attain",        ru:"достигать",                    cat:"verb"},
+  {en:"attribute",     ru:"приписывать",                  cat:"verb"},
+  {en:"avoid",         ru:"избегать",                     cat:"verb"},
+  {en:"benefit",       ru:"извлекать пользу",             cat:"verb"},
+  {en:"cease",         ru:"прекращать",                   cat:"verb"},
+  {en:"challenge",     ru:"оспаривать",                   cat:"verb"},
+  {en:"cite",          ru:"цитировать",                   cat:"verb"},
+  {en:"clarify",       ru:"прояснять",                    cat:"verb"},
+  {en:"classify",      ru:"классифицировать",             cat:"verb"},
+  {en:"collaborate",   ru:"сотрудничать",                 cat:"verb"},
+  {en:"communicate",   ru:"общаться",                     cat:"verb"},
+  {en:"concentrate",   ru:"концентрироваться",            cat:"verb"},
+  {en:"conclude",      ru:"заключать",                    cat:"verb"},
+  {en:"conduct",       ru:"проводить",                    cat:"verb"},
+  {en:"confirm",       ru:"подтверждать",                 cat:"verb"},
+  {en:"consider",      ru:"рассматривать",                cat:"verb"},
+  {en:"contribute",    ru:"вносить вклад",                cat:"verb"},
+  {en:"convince",      ru:"убеждать",                     cat:"verb"},
+  {en:"cope",          ru:"справляться",                  cat:"verb"},
+  {en:"correspond",    ru:"соответствовать",              cat:"verb"},
+  {en:"decline",       ru:"снижаться, отклонять",         cat:"verb"},
+  {en:"define",        ru:"определять",                   cat:"verb"},
+  {en:"demonstrate",   ru:"демонстрировать",              cat:"verb"},
+  {en:"deny",          ru:"отрицать",                     cat:"verb"},
+  {en:"derive",        ru:"извлекать",                    cat:"verb"},
+  {en:"detect",        ru:"обнаруживать",                 cat:"verb"},
+  {en:"determine",     ru:"определять",                   cat:"verb"},
+  {en:"distribute",    ru:"распределять",                 cat:"verb"},
+  {en:"eliminate",     ru:"устранять",                    cat:"verb"},
+  {en:"emerge",        ru:"появляться",                   cat:"verb"},
+  {en:"enable",        ru:"давать возможность",           cat:"verb"},
+  {en:"encounter",     ru:"встречать, столкнуться",       cat:"verb"},
+  {en:"enhance",       ru:"усиливать",                    cat:"verb"},
+  {en:"ensure",        ru:"обеспечивать",                 cat:"verb"},
+  {en:"evaluate",      ru:"оценивать",                    cat:"verb"},
+  {en:"exceed",        ru:"превышать",                    cat:"verb"},
+  {en:"exclude",       ru:"исключать",                    cat:"verb"},
+  {en:"explore",       ru:"исследовать",                  cat:"verb"},
+  {en:"expose",        ru:"разоблачать, подвергать",      cat:"verb"},
+  {en:"facilitate",    ru:"облегчать",                    cat:"verb"},
+  {en:"forecast",      ru:"прогнозировать",               cat:"verb"},
+  {en:"generate",      ru:"генерировать",                 cat:"verb"},
+  {en:"handle",        ru:"справляться",                  cat:"verb"},
+  {en:"highlight",     ru:"выделять",                     cat:"verb"},
+  {en:"identify",      ru:"определять",                   cat:"verb"},
+  {en:"implement",     ru:"реализовывать",                cat:"verb"},
+  {en:"imply",         ru:"подразумевать",                cat:"verb"},
+  {en:"indicate",      ru:"указывать",                    cat:"verb"},
+  {en:"influence",     ru:"влиять",                       cat:"verb"},
+  {en:"interpret",     ru:"интерпретировать",             cat:"verb"},
+  {en:"investigate",   ru:"расследовать",                 cat:"verb"},
+  {en:"involve",       ru:"включать в себя",              cat:"verb"},
+  {en:"justify",       ru:"оправдывать",                  cat:"verb"},
+  {en:"launch",        ru:"запускать",                    cat:"verb"},
+  {en:"limit",         ru:"ограничивать",                 cat:"verb"},
+  {en:"link",          ru:"связывать",                    cat:"verb"},
+  {en:"maintain",      ru:"поддерживать",                 cat:"verb"},
+  {en:"manage",        ru:"управлять",                    cat:"verb"},
+  {en:"measure",       ru:"измерять",                     cat:"verb"},
+  {en:"modify",        ru:"изменять",                     cat:"verb"},
+  {en:"monitor",       ru:"отслеживать",                  cat:"verb"},
+  {en:"motivate",      ru:"мотивировать",                 cat:"verb"},
+  {en:"neglect",       ru:"пренебрегать",                 cat:"verb"},
+  {en:"negotiate",     ru:"договариваться",               cat:"verb"},
+  {en:"observe",       ru:"наблюдать",                    cat:"verb"},
+  {en:"obtain",        ru:"получать",                     cat:"verb"},
+  {en:"occur",         ru:"происходить",                  cat:"verb"},
+  {en:"overcome",      ru:"преодолевать",                 cat:"verb"},
+  {en:"participate",   ru:"участвовать",                  cat:"verb"},
+  {en:"perceive",      ru:"воспринимать",                 cat:"verb"},
+  {en:"perform",       ru:"выполнять",                    cat:"verb"},
+  {en:"predict",       ru:"предсказывать",                cat:"verb"},
+  {en:"preserve",      ru:"сохранять",                    cat:"verb"},
+  {en:"prevent",       ru:"предотвращать",                cat:"verb"},
+  {en:"promote",       ru:"продвигать",                   cat:"verb"},
+  {en:"propose",       ru:"предлагать",                   cat:"verb"},
+  {en:"prove",         ru:"доказывать",                   cat:"verb"},
+  {en:"pursue",        ru:"добиваться",                   cat:"verb"},
+  {en:"realize",       ru:"осознавать",                   cat:"verb"},
+  {en:"reduce",        ru:"уменьшать",                    cat:"verb"},
+  {en:"refer",         ru:"ссылаться",                    cat:"verb"},
+  {en:"reflect",       ru:"отражать",                     cat:"verb"},
+  {en:"reject",        ru:"отвергать",                    cat:"verb"},
+  {en:"rely",          ru:"полагаться",                   cat:"verb"},
+  {en:"replace",       ru:"заменять",                     cat:"verb"},
+  {en:"represent",     ru:"представлять",                 cat:"verb"},
+  {en:"require",       ru:"требовать",                    cat:"verb"},
+  {en:"resolve",       ru:"разрешать",                    cat:"verb"},
+  {en:"reveal",        ru:"раскрывать",                   cat:"verb"},
+  {en:"seek",          ru:"искать",                       cat:"verb"},
+  {en:"select",        ru:"выбирать",                     cat:"verb"},
+  {en:"solve",         ru:"решать",                       cat:"verb"},
+  {en:"suggest",       ru:"предлагать",                   cat:"verb"},
+  {en:"support",       ru:"поддерживать",                 cat:"verb"},
+  {en:"sustain",       ru:"поддерживать, сохранять",      cat:"verb"},
+  {en:"tend",          ru:"иметь тенденцию",              cat:"verb"},
+  {en:"transfer",      ru:"передавать",                   cat:"verb"},
+  {en:"transform",     ru:"преобразовывать",              cat:"verb"},
+  {en:"underline",     ru:"подчёркивать",                 cat:"verb"},
+  {en:"undertake",     ru:"предпринимать",                cat:"verb"},
+  {en:"vary",          ru:"варьироваться",                cat:"verb"},
+  {en:"verify",        ru:"проверять",                    cat:"verb"},
+  {en:"withdraw",      ru:"изымать, отступать",           cat:"verb"},
+  {en:"yield",         ru:"давать результат, уступать",   cat:"verb"},
+  {en:"engage",        ru:"вовлекать",                    cat:"verb"},
+
+  // ── NOUNS (140) ───────────────────────────────────────────────────
+  {en:"achievement",    ru:"достижение",                  cat:"noun"},
+  {en:"advantage",      ru:"преимущество",                cat:"noun"},
+  {en:"analysis",       ru:"анализ",                      cat:"noun"},
+  {en:"approach",       ru:"подход",                      cat:"noun"},
+  {en:"argument",       ru:"аргумент",                    cat:"noun"},
+  {en:"aspect",         ru:"аспект",                      cat:"noun"},
+  {en:"assessment",     ru:"оценка",                      cat:"noun"},
+  {en:"assumption",     ru:"предположение",               cat:"noun"},
+  {en:"attitude",       ru:"отношение, позиция",          cat:"noun"},
+  {en:"authority",      ru:"власть, авторитет",           cat:"noun"},
+  {en:"awareness",      ru:"осведомлённость",             cat:"noun"},
+  {en:"behaviour",      ru:"поведение",                   cat:"noun"},
+  {en:"benefit",        ru:"польза, выгода",              cat:"noun"},
+  {en:"capacity",       ru:"способность, мощность",       cat:"noun"},
+  {en:"characteristic", ru:"характеристика",              cat:"noun"},
+  {en:"circumstance",   ru:"обстоятельство",              cat:"noun"},
+  {en:"commitment",     ru:"обязательство",               cat:"noun"},
+  {en:"community",      ru:"сообщество",                  cat:"noun"},
+  {en:"competition",    ru:"конкуренция",                 cat:"noun"},
+  {en:"concept",        ru:"концепция",                   cat:"noun"},
+  {en:"conclusion",     ru:"вывод",                       cat:"noun"},
+  {en:"conflict",       ru:"конфликт",                    cat:"noun"},
+  {en:"consequence",    ru:"последствие",                 cat:"noun"},
+  {en:"consideration",  ru:"рассмотрение",                cat:"noun"},
+  {en:"context",        ru:"контекст",                    cat:"noun"},
+  {en:"contribution",   ru:"вклад",                       cat:"noun"},
+  {en:"controversy",    ru:"противоречие, споры",         cat:"noun"},
+  {en:"criticism",      ru:"критика",                     cat:"noun"},
+  {en:"data",           ru:"данные",                      cat:"noun"},
+  {en:"debate",         ru:"дебаты",                      cat:"noun"},
+  {en:"decision",       ru:"решение",                     cat:"noun"},
+  {en:"decline",        ru:"упадок, снижение",            cat:"noun"},
+  {en:"degree",         ru:"степень",                     cat:"noun"},
+  {en:"demand",         ru:"спрос, требование",           cat:"noun"},
+  {en:"disadvantage",   ru:"недостаток",                  cat:"noun"},
+  {en:"discipline",     ru:"дисциплина",                  cat:"noun"},
+  {en:"distinction",    ru:"различие",                    cat:"noun"},
+  {en:"diversity",      ru:"разнообразие",                cat:"noun"},
+  {en:"economy",        ru:"экономика",                   cat:"noun"},
+  {en:"effect",         ru:"эффект, последствие",         cat:"noun"},
+  {en:"element",        ru:"элемент",                     cat:"noun"},
+  {en:"emphasis",       ru:"акцент",                      cat:"noun"},
+  {en:"environment",    ru:"окружающая среда",            cat:"noun"},
+  {en:"evidence",       ru:"доказательство",              cat:"noun"},
+  {en:"expectation",    ru:"ожидание",                    cat:"noun"},
+  {en:"explanation",    ru:"объяснение",                  cat:"noun"},
+  {en:"extent",         ru:"степень, масштаб",            cat:"noun"},
+  {en:"factor",         ru:"фактор",                      cat:"noun"},
+  {en:"failure",        ru:"неудача",                     cat:"noun"},
+  {en:"freedom",        ru:"свобода",                     cat:"noun"},
+  {en:"function",       ru:"функция",                     cat:"noun"},
+  {en:"gap",            ru:"разрыв, пробел",              cat:"noun"},
+  {en:"generation",     ru:"поколение",                   cat:"noun"},
+  {en:"goal",           ru:"цель",                        cat:"noun"},
+  {en:"growth",         ru:"рост",                        cat:"noun"},
+  {en:"hypothesis",     ru:"гипотеза",                    cat:"noun"},
+  {en:"identity",       ru:"идентичность",                cat:"noun"},
+  {en:"impact",         ru:"воздействие, влияние",        cat:"noun"},
+  {en:"implication",    ru:"значение, подтекст",          cat:"noun"},
+  {en:"improvement",    ru:"улучшение",                   cat:"noun"},
+  {en:"income",         ru:"доход",                       cat:"noun"},
+  {en:"independence",   ru:"независимость",               cat:"noun"},
+  {en:"indicator",      ru:"показатель",                  cat:"noun"},
+  {en:"infrastructure", ru:"инфраструктура",              cat:"noun"},
+  {en:"initiative",     ru:"инициатива",                  cat:"noun"},
+  {en:"institution",    ru:"институт, учреждение",        cat:"noun"},
+  {en:"integration",    ru:"интеграция",                  cat:"noun"},
+  {en:"interaction",    ru:"взаимодействие",              cat:"noun"},
+  {en:"interpretation", ru:"интерпретация",               cat:"noun"},
+  {en:"investigation",  ru:"расследование",               cat:"noun"},
+  {en:"involvement",    ru:"участие, вовлечённость",      cat:"noun"},
+  {en:"issue",          ru:"проблема, вопрос",            cat:"noun"},
+  {en:"judgment",       ru:"суждение",                    cat:"noun"},
+  {en:"knowledge",      ru:"знание",                      cat:"noun"},
+  {en:"lack",           ru:"нехватка",                    cat:"noun"},
+  {en:"limitation",     ru:"ограничение",                 cat:"noun"},
+  {en:"majority",       ru:"большинство",                 cat:"noun"},
+  {en:"mechanism",      ru:"механизм",                    cat:"noun"},
+  {en:"method",         ru:"метод",                       cat:"noun"},
+  {en:"minority",       ru:"меньшинство",                 cat:"noun"},
+  {en:"motivation",     ru:"мотивация",                   cat:"noun"},
+  {en:"network",        ru:"сеть",                        cat:"noun"},
+  {en:"norm",           ru:"норма",                       cat:"noun"},
+  {en:"objective",      ru:"цель, задача",                cat:"noun"},
+  {en:"obligation",     ru:"обязательство",               cat:"noun"},
+  {en:"opportunity",    ru:"возможность",                 cat:"noun"},
+  {en:"outcome",        ru:"результат, исход",            cat:"noun"},
+  {en:"output",         ru:"результат, выход",            cat:"noun"},
+  {en:"participation",  ru:"участие",                     cat:"noun"},
+  {en:"pattern",        ru:"образец, шаблон",             cat:"noun"},
+  {en:"percentage",     ru:"процент",                     cat:"noun"},
+  {en:"perspective",    ru:"перспектива",                 cat:"noun"},
+  {en:"phase",          ru:"фаза, этап",                  cat:"noun"},
+  {en:"phenomenon",     ru:"явление",                     cat:"noun"},
+  {en:"policy",         ru:"политика",                    cat:"noun"},
+  {en:"population",     ru:"население",                   cat:"noun"},
+  {en:"potential",      ru:"потенциал",                   cat:"noun"},
+  {en:"prediction",     ru:"прогноз",                     cat:"noun"},
+  {en:"priority",       ru:"приоритет",                   cat:"noun"},
+  {en:"principle",      ru:"принцип",                     cat:"noun"},
+  {en:"procedure",      ru:"процедура",                   cat:"noun"},
+  {en:"process",        ru:"процесс",                     cat:"noun"},
+  {en:"progress",       ru:"прогресс",                    cat:"noun"},
+  {en:"proportion",     ru:"пропорция",                   cat:"noun"},
+  {en:"proposal",       ru:"предложение",                 cat:"noun"},
+  {en:"purpose",        ru:"цель, назначение",            cat:"noun"},
+  {en:"reaction",       ru:"реакция",                     cat:"noun"},
+  {en:"reform",         ru:"реформа",                     cat:"noun"},
+  {en:"regulation",     ru:"регулирование",               cat:"noun"},
+  {en:"relationship",   ru:"отношения",                   cat:"noun"},
+  {en:"requirement",    ru:"требование",                  cat:"noun"},
+  {en:"resource",       ru:"ресурс",                      cat:"noun"},
+  {en:"responsibility", ru:"ответственность",             cat:"noun"},
+  {en:"restriction",    ru:"ограничение",                 cat:"noun"},
+  {en:"risk",           ru:"риск",                        cat:"noun"},
+  {en:"role",           ru:"роль",                        cat:"noun"},
+  {en:"scale",          ru:"масштаб",                     cat:"noun"},
+  {en:"sector",         ru:"сектор",                      cat:"noun"},
+  {en:"sequence",       ru:"последовательность",          cat:"noun"},
+  {en:"shift",          ru:"сдвиг, изменение",            cat:"noun"},
+  {en:"significance",   ru:"значимость",                  cat:"noun"},
+  {en:"situation",      ru:"ситуация",                    cat:"noun"},
+  {en:"skill",          ru:"навык",                       cat:"noun"},
+  {en:"solution",       ru:"решение",                     cat:"noun"},
+  {en:"source",         ru:"источник",                    cat:"noun"},
+  {en:"standard",       ru:"стандарт",                    cat:"noun"},
+  {en:"statistics",     ru:"статистика",                  cat:"noun"},
+  {en:"strategy",       ru:"стратегия",                   cat:"noun"},
+  {en:"strength",       ru:"сила",                        cat:"noun"},
+  {en:"structure",      ru:"структура",                   cat:"noun"},
+  {en:"tendency",       ru:"тенденция",                   cat:"noun"},
+  {en:"tension",        ru:"напряжение",                  cat:"noun"},
+  {en:"theory",         ru:"теория",                      cat:"noun"},
+  {en:"transformation", ru:"преобразование",              cat:"noun"},
+  {en:"transition",     ru:"переход",                     cat:"noun"},
+  {en:"trend",          ru:"тенденция, тренд",            cat:"noun"},
+  {en:"uncertainty",    ru:"неопределённость",            cat:"noun"},
+  {en:"value",          ru:"ценность",                    cat:"noun"},
+  {en:"variation",      ru:"вариация",                    cat:"noun"},
+  {en:"weakness",       ru:"слабость",                    cat:"noun"},
+
+  // ── ADJECTIVES (130) ─────────────────────────────────────────────
+  {en:"abstract",       ru:"абстрактный",                 cat:"adj"},
+  {en:"accessible",     ru:"доступный",                   cat:"adj"},
+  {en:"accurate",       ru:"точный",                      cat:"adj"},
+  {en:"adequate",       ru:"достаточный",                 cat:"adj"},
+  {en:"aggressive",     ru:"агрессивный",                 cat:"adj"},
+  {en:"alternative",    ru:"альтернативный",              cat:"adj"},
+  {en:"ambitious",      ru:"амбициозный",                 cat:"adj"},
+  {en:"analytical",     ru:"аналитический",              cat:"adj"},
+  {en:"annual",         ru:"ежегодный",                   cat:"adj"},
+  {en:"anxious",        ru:"тревожный",                   cat:"adj"},
+  {en:"apparent",       ru:"очевидный",                   cat:"adj"},
+  {en:"appropriate",    ru:"подходящий",                  cat:"adj"},
+  {en:"approximate",    ru:"приблизительный",             cat:"adj"},
+  {en:"arbitrary",      ru:"произвольный",                cat:"adj"},
+  {en:"artificial",     ru:"искусственный",               cat:"adj"},
+  {en:"assertive",      ru:"напористый",                  cat:"adj"},
+  {en:"aware",          ru:"осведомлённый",               cat:"adj"},
+  {en:"balanced",       ru:"сбалансированный",            cat:"adj"},
+  {en:"beneficial",     ru:"полезный",                    cat:"adj"},
+  {en:"broad",          ru:"широкий",                     cat:"adj"},
+  {en:"capable",        ru:"способный",                   cat:"adj"},
+  {en:"cautious",       ru:"осторожный",                  cat:"adj"},
+  {en:"certain",        ru:"определённый",                cat:"adj"},
+  {en:"challenging",    ru:"сложный, требующий усилий",   cat:"adj"},
+  {en:"chronic",        ru:"хронический",                 cat:"adj"},
+  {en:"collective",     ru:"коллективный",                cat:"adj"},
+  {en:"compelling",     ru:"убедительный",                cat:"adj"},
+  {en:"competitive",    ru:"конкурентный",                cat:"adj"},
+  {en:"complex",        ru:"сложный",                     cat:"adj"},
+  {en:"comprehensive",  ru:"всесторонний",                cat:"adj"},
+  {en:"considerable",   ru:"значительный",                cat:"adj"},
+  {en:"consistent",     ru:"последовательный",            cat:"adj"},
+  {en:"contradictory",  ru:"противоречивый",              cat:"adj"},
+  {en:"controversial",  ru:"спорный",                     cat:"adj"},
+  {en:"convincing",     ru:"убедительный",                cat:"adj"},
+  {en:"creative",       ru:"творческий",                  cat:"adj"},
+  {en:"critical",       ru:"критический",                 cat:"adj"},
+  {en:"crucial",        ru:"крайне важный",               cat:"adj"},
+  {en:"current",        ru:"текущий",                     cat:"adj"},
+  {en:"decisive",       ru:"решительный",                 cat:"adj"},
+  {en:"dedicated",      ru:"преданный",                   cat:"adj"},
+  {en:"deliberate",     ru:"намеренный",                  cat:"adj"},
+  {en:"dependent",      ru:"зависимый",                   cat:"adj"},
+  {en:"determined",     ru:"решительный",                 cat:"adj"},
+  {en:"digital",        ru:"цифровой",                    cat:"adj"},
+  {en:"distinct",       ru:"отчётливый",                  cat:"adj"},
+  {en:"diverse",        ru:"разнообразный",               cat:"adj"},
+  {en:"dominant",       ru:"доминирующий",                cat:"adj"},
+  {en:"dynamic",        ru:"динамичный",                  cat:"adj"},
+  {en:"economic",       ru:"экономический",               cat:"adj"},
+  {en:"effective",      ru:"эффективный",                 cat:"adj"},
+  {en:"efficient",      ru:"производительный",            cat:"adj"},
+  {en:"emotional",      ru:"эмоциональный",               cat:"adj"},
+  {en:"equal",          ru:"равный",                      cat:"adj"},
+  {en:"ethical",        ru:"этический",                   cat:"adj"},
+  {en:"evident",        ru:"очевидный",                   cat:"adj"},
+  {en:"excessive",      ru:"чрезмерный",                  cat:"adj"},
+  {en:"exclusive",      ru:"эксклюзивный",                cat:"adj"},
+  {en:"explicit",       ru:"явный",                       cat:"adj"},
+  {en:"extensive",      ru:"обширный",                    cat:"adj"},
+  {en:"extreme",        ru:"крайний",                     cat:"adj"},
+  {en:"fair",           ru:"справедливый",                cat:"adj"},
+  {en:"familiar",       ru:"знакомый",                    cat:"adj"},
+  {en:"feasible",       ru:"осуществимый",                cat:"adj"},
+  {en:"fierce",         ru:"яростный",                    cat:"adj"},
+  {en:"financial",      ru:"финансовый",                  cat:"adj"},
+  {en:"flexible",       ru:"гибкий",                      cat:"adj"},
+  {en:"formal",         ru:"формальный",                  cat:"adj"},
+  {en:"frequent",       ru:"частый",                      cat:"adj"},
+  {en:"fundamental",    ru:"фундаментальный",             cat:"adj"},
+  {en:"genuine",        ru:"настоящий",                   cat:"adj"},
+  {en:"global",         ru:"глобальный",                  cat:"adj"},
+  {en:"gradual",        ru:"постепенный",                 cat:"adj"},
+  {en:"grateful",       ru:"благодарный",                 cat:"adj"},
+  {en:"harsh",          ru:"суровый",                     cat:"adj"},
+  {en:"ideal",          ru:"идеальный",                   cat:"adj"},
+  {en:"identical",      ru:"идентичный",                  cat:"adj"},
+  {en:"implicit",       ru:"неявный",                     cat:"adj"},
+  {en:"inevitable",     ru:"неизбежный",                  cat:"adj"},
+  {en:"inferior",       ru:"низший",                      cat:"adj"},
+  {en:"inherent",       ru:"присущий",                    cat:"adj"},
+  {en:"initial",        ru:"первоначальный",              cat:"adj"},
+  {en:"intellectual",   ru:"интеллектуальный",            cat:"adj"},
+  {en:"intense",        ru:"интенсивный",                 cat:"adj"},
+  {en:"internal",       ru:"внутренний",                  cat:"adj"},
+  {en:"isolated",       ru:"изолированный",               cat:"adj"},
+  {en:"limited",        ru:"ограниченный",                cat:"adj"},
+  {en:"logical",        ru:"логичный",                    cat:"adj"},
+  {en:"long-term",      ru:"долгосрочный",                cat:"adj"},
+  {en:"mainstream",     ru:"общепринятый",                cat:"adj"},
+  {en:"mature",         ru:"зрелый",                      cat:"adj"},
+  {en:"meaningful",     ru:"значимый",                    cat:"adj"},
+  {en:"moderate",       ru:"умеренный",                   cat:"adj"},
+  {en:"moral",          ru:"моральный",                   cat:"adj"},
+  {en:"mutual",         ru:"взаимный",                    cat:"adj"},
+  {en:"necessary",      ru:"необходимый",                 cat:"adj"},
+  {en:"neutral",        ru:"нейтральный",                 cat:"adj"},
+  {en:"obvious",        ru:"очевидный",                   cat:"adj"},
+  {en:"ongoing",        ru:"продолжающийся",              cat:"adj"},
+  {en:"optional",       ru:"необязательный",              cat:"adj"},
+  {en:"overall",        ru:"общий",                       cat:"adj"},
+  {en:"partial",        ru:"частичный",                   cat:"adj"},
+  {en:"particular",     ru:"особенный",                   cat:"adj"},
+  {en:"passive",        ru:"пассивный",                   cat:"adj"},
+  {en:"persistent",     ru:"настойчивый",                 cat:"adj"},
+  {en:"political",      ru:"политический",                cat:"adj"},
+  {en:"positive",       ru:"положительный",               cat:"adj"},
+  {en:"practical",      ru:"практический",                cat:"adj"},
+  {en:"precise",        ru:"точный",                      cat:"adj"},
+  {en:"predictable",    ru:"предсказуемый",               cat:"adj"},
+  {en:"primary",        ru:"первичный",                   cat:"adj"},
+  {en:"productive",     ru:"продуктивный",                cat:"adj"},
+  {en:"profound",       ru:"глубокий",                    cat:"adj"},
+  {en:"progressive",    ru:"прогрессивный",               cat:"adj"},
+  {en:"prominent",      ru:"видный, заметный",            cat:"adj"},
+  {en:"proportional",   ru:"пропорциональный",            cat:"adj"},
+  {en:"psychological",  ru:"психологический",             cat:"adj"},
+  {en:"rational",       ru:"рациональный",                cat:"adj"},
+  {en:"realistic",      ru:"реалистичный",                cat:"adj"},
+  {en:"relevant",       ru:"актуальный",                  cat:"adj"},
+  {en:"reluctant",      ru:"неохотный",                   cat:"adj"},
+  {en:"responsible",    ru:"ответственный",               cat:"adj"},
+  {en:"severe",         ru:"суровый",                     cat:"adj"},
+  {en:"significant",    ru:"значительный",                cat:"adj"},
+  {en:"simultaneous",   ru:"одновременный",               cat:"adj"},
+  {en:"specific",       ru:"конкретный",                  cat:"adj"},
+  {en:"straightforward",ru:"прямолинейный",               cat:"adj"},
+  {en:"sufficient",     ru:"достаточный",                 cat:"adj"},
+  {en:"temporary",      ru:"временный",                   cat:"adj"},
+  {en:"thorough",       ru:"тщательный",                  cat:"adj"},
+  {en:"typical",        ru:"типичный",                    cat:"adj"},
+  {en:"uncertain",      ru:"неопределённый",              cat:"adj"},
+  {en:"valid",          ru:"действительный",              cat:"adj"},
+  {en:"vast",           ru:"обширный",                    cat:"adj"},
+  {en:"voluntary",      ru:"добровольный",                cat:"adj"},
+  {en:"widespread",     ru:"широко распространённый",     cat:"adj"},
+
+  // ── ADVERBS (50) ─────────────────────────────────────────────────
+  {en:"accordingly",    ru:"соответственно",              cat:"adv"},
+  {en:"additionally",   ru:"дополнительно",               cat:"adv"},
+  {en:"actually",       ru:"на самом деле",               cat:"adv"},
+  {en:"alternatively",  ru:"в качестве альтернативы",     cat:"adv"},
+  {en:"approximately",  ru:"приблизительно",              cat:"adv"},
+  {en:"broadly",        ru:"в широком смысле",            cat:"adv"},
+  {en:"certainly",      ru:"конечно",                     cat:"adv"},
+  {en:"clearly",        ru:"ясно",                        cat:"adv"},
+  {en:"consequently",   ru:"следовательно",               cat:"adv"},
+  {en:"considerably",   ru:"значительно",                 cat:"adv"},
+  {en:"continuously",   ru:"непрерывно",                  cat:"adv"},
+  {en:"currently",      ru:"в настоящее время",           cat:"adv"},
+  {en:"deliberately",   ru:"намеренно",                   cat:"adv"},
+  {en:"effectively",    ru:"эффективно",                  cat:"adv"},
+  {en:"essentially",    ru:"по сути",                     cat:"adv"},
+  {en:"eventually",     ru:"в конечном счёте",            cat:"adv"},
+  {en:"evidently",      ru:"очевидно",                    cat:"adv"},
+  {en:"explicitly",     ru:"явно",                        cat:"adv"},
+  {en:"extensively",    ru:"обширно",                     cat:"adv"},
+  {en:"extremely",      ru:"крайне",                      cat:"adv"},
+  {en:"fairly",         ru:"довольно",                    cat:"adv"},
+  {en:"formally",       ru:"официально",                  cat:"adv"},
+  {en:"frequently",     ru:"часто",                       cat:"adv"},
+  {en:"generally",      ru:"в целом",                     cat:"adv"},
+  {en:"gradually",      ru:"постепенно",                  cat:"adv"},
+  {en:"largely",        ru:"в основном",                  cat:"adv"},
+  {en:"likely",         ru:"вероятно",                    cat:"adv"},
+  {en:"mainly",         ru:"главным образом",             cat:"adv"},
+  {en:"merely",         ru:"просто",                      cat:"adv"},
+  {en:"mostly",         ru:"в основном",                  cat:"adv"},
+  {en:"mutually",       ru:"взаимно",                     cat:"adv"},
+  {en:"necessarily",    ru:"обязательно",                 cat:"adv"},
+  {en:"notably",        ru:"особенно",                    cat:"adv"},
+  {en:"obviously",      ru:"очевидно",                    cat:"adv"},
+  {en:"occasionally",   ru:"иногда",                      cat:"adv"},
+  {en:"particularly",   ru:"особенно",                    cat:"adv"},
+  {en:"potentially",    ru:"потенциально",                cat:"adv"},
+  {en:"previously",     ru:"ранее",                       cat:"adv"},
+  {en:"primarily",      ru:"прежде всего",                cat:"adv"},
+  {en:"probably",       ru:"вероятно",                    cat:"adv"},
+  {en:"rapidly",        ru:"быстро",                      cat:"adv"},
+  {en:"rather",         ru:"скорее",                      cat:"adv"},
+  {en:"relatively",     ru:"относительно",                cat:"adv"},
+  {en:"significantly",  ru:"значительно",                 cat:"adv"},
+  {en:"specifically",   ru:"конкретно",                   cat:"adv"},
+  {en:"subsequently",   ru:"впоследствии",                cat:"adv"},
+  {en:"sufficiently",   ru:"достаточно",                  cat:"adv"},
+  {en:"typically",      ru:"обычно",                      cat:"adv"},
+  {en:"ultimately",     ru:"в конечном счёте",            cat:"adv"},
+  {en:"whereas",        ru:"тогда как",                   cat:"adv"},
+
+  // ── PHRASES (60) ─────────────────────────────────────────────────
+  {en:"as a result",              ru:"в результате",                    cat:"phrase"},
+  {en:"at the expense of",        ru:"за счёт",                         cat:"phrase"},
+  {en:"be aware of",              ru:"быть осведомлённым о",            cat:"phrase"},
+  {en:"be capable of",            ru:"быть способным на",               cat:"phrase"},
+  {en:"be concerned about",       ru:"беспокоиться о",                  cat:"phrase"},
+  {en:"be in charge of",          ru:"отвечать за",                     cat:"phrase"},
+  {en:"be likely to",             ru:"иметь вероятность",               cat:"phrase"},
+  {en:"be responsible for",       ru:"нести ответственность за",        cat:"phrase"},
+  {en:"be subject to",            ru:"подвергаться",                    cat:"phrase"},
+  {en:"be supposed to",           ru:"предполагаться, должен",          cat:"phrase"},
+  {en:"bring about",              ru:"вызывать, приводить к",           cat:"phrase"},
+  {en:"by contrast",              ru:"в отличие от",                    cat:"phrase"},
+  {en:"by means of",              ru:"посредством",                     cat:"phrase"},
+  {en:"carry out",                ru:"выполнять",                       cat:"phrase"},
+  {en:"come to terms with",       ru:"смириться с",                     cat:"phrase"},
+  {en:"come up with",             ru:"придумать",                       cat:"phrase"},
+  {en:"deal with",                ru:"справляться с",                   cat:"phrase"},
+  {en:"depend on",                ru:"зависеть от",                     cat:"phrase"},
+  {en:"draw a conclusion",        ru:"делать вывод",                    cat:"phrase"},
+  {en:"due to",                   ru:"из-за, благодаря",                cat:"phrase"},
+  {en:"face a challenge",         ru:"столкнуться с вызовом",           cat:"phrase"},
+  {en:"fall short of",            ru:"не достигать",                    cat:"phrase"},
+  {en:"for instance",             ru:"например",                        cat:"phrase"},
+  {en:"give rise to",             ru:"давать начало, порождать",        cat:"phrase"},
+  {en:"go along with",            ru:"соглашаться с",                   cat:"phrase"},
+  {en:"in addition to",           ru:"в дополнение к",                  cat:"phrase"},
+  {en:"in favour of",             ru:"в пользу",                        cat:"phrase"},
+  {en:"in relation to",           ru:"по отношению к",                  cat:"phrase"},
+  {en:"in spite of",              ru:"несмотря на",                     cat:"phrase"},
+  {en:"in terms of",              ru:"с точки зрения",                  cat:"phrase"},
+  {en:"keep in mind",             ru:"иметь в виду",                    cat:"phrase"},
+  {en:"lead to",                  ru:"приводить к",                     cat:"phrase"},
+  {en:"look into",                ru:"расследовать",                    cat:"phrase"},
+  {en:"make a difference",        ru:"иметь значение",                  cat:"phrase"},
+  {en:"make an effort",           ru:"прилагать усилия",                cat:"phrase"},
+  {en:"make use of",              ru:"использовать",                    cat:"phrase"},
+  {en:"on behalf of",             ru:"от имени",                        cat:"phrase"},
+  {en:"on the contrary",          ru:"напротив",                        cat:"phrase"},
+  {en:"on the grounds of",        ru:"на основании",                    cat:"phrase"},
+  {en:"on the other hand",        ru:"с другой стороны",               cat:"phrase"},
+  {en:"overcome obstacles",       ru:"преодолевать препятствия",        cat:"phrase"},
+  {en:"point of view",            ru:"точка зрения",                    cat:"phrase"},
+  {en:"put into practice",        ru:"применять на практике",           cat:"phrase"},
+  {en:"raise awareness",          ru:"повышать осведомлённость",        cat:"phrase"},
+  {en:"reach a conclusion",       ru:"прийти к выводу",                 cat:"phrase"},
+  {en:"regardless of",            ru:"независимо от",                   cat:"phrase"},
+  {en:"result in",                ru:"приводить к",                     cat:"phrase"},
+  {en:"set a goal",               ru:"ставить цель",                    cat:"phrase"},
+  {en:"shed light on",            ru:"проливать свет на",               cat:"phrase"},
+  {en:"so as to",                 ru:"чтобы",                           cat:"phrase"},
+  {en:"take advantage of",        ru:"воспользоваться",                 cat:"phrase"},
+  {en:"take into account",        ru:"принимать во внимание",           cat:"phrase"},
+  {en:"take responsibility for",  ru:"брать ответственность за",        cat:"phrase"},
+  {en:"to a certain extent",      ru:"в определённой мере",             cat:"phrase"},
+  {en:"to be on the safe side",   ru:"на всякий случай",                cat:"phrase"},
+  {en:"to sum up",                ru:"подводя итог",                    cat:"phrase"},
+  {en:"turn out",                 ru:"оказываться",                     cat:"phrase"},
+  {en:"with regard to",           ru:"относительно",                    cat:"phrase"},
+  {en:"with respect to",          ru:"по отношению к",                  cat:"phrase"},
+  {en:"work out",                 ru:"разрабатывать, получаться",        cat:"phrase"},
+];
+
+// ── STATE ────────────────────────────────────────────────────────────
+let deck=[], currentIdx=0, isFlipped=false, showEnFirst=true;
+let currentMode='cards', currentCategory='all';
+let learnedSet=new Set();
+let quizCurrent=null, quizScore=0, quizTotal=0, quizAnswered=false;
+
+// ── INIT ─────────────────────────────────────────────────────────────
+storage.get('b2_learned',(val)=>{
+  learnedSet=new Set(JSON.parse(val||'[]'));
+  buildDeck(); updateStats(); setMode('cards');
+  document.getElementById('loading').style.opacity='0';
+  setTimeout(()=>document.getElementById('loading').remove(),300);
+});
+
+function saveProgress(){ storage.set('b2_learned',JSON.stringify([...learnedSet])); }
+
+function buildDeck(){
+  let src=WORDS;
+  if(currentCategory==='unknown') src=WORDS.filter(w=>!learnedSet.has(w.en));
+  else if(currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
+  deck=[...src]; currentIdx=0; isFlipped=false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard(); updateStats();
+}
+
+function renderCard(){
+  if(!deck.length){
+    document.getElementById('card-front-word').textContent='🎉 Все изучены!';
+    document.getElementById('card-back-word').textContent='';
+    document.getElementById('card-counter').textContent='0 / 0';
+    document.getElementById('progress-fill').style.width='0%';
+    document.getElementById('progress-label').textContent='0 / 0';
+    return;
+  }
+  const w=deck[currentIdx];
+  document.getElementById('card-front-word').textContent=showEnFirst?w.en:w.ru;
+  document.getElementById('card-back-word').textContent=showEnFirst?w.ru:w.en;
+  document.getElementById('card-back-trans').textContent='';
+  document.getElementById('card-cat').textContent=CAT[w.cat]||w.cat;
+  document.getElementById('card-known-badge').style.display=learnedSet.has(w.en)?'block':'none';
+  const pos=currentIdx+1,total=deck.length;
+  document.getElementById('card-counter').textContent=`${pos} / ${total}`;
+  document.getElementById('progress-fill').style.width=`${(pos/total)*100}%`;
+  document.getElementById('progress-label').textContent=`${pos} / ${total}`;
+  document.getElementById('btn-prev').disabled=currentIdx===0;
+  document.getElementById('btn-next').disabled=currentIdx===deck.length-1;
+  updateHeaderStats();
+}
+
+function flipCard(){
+  if(!deck.length) return;
+  isFlipped=!isFlipped;
+  document.getElementById('card-wrapper').classList.toggle('flipped',isFlipped);
+  if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function navigate(dir){
+  const next=currentIdx+dir;
+  if(next<0||next>=deck.length) return;
+  currentIdx=next; isFlipped=false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+}
+
+function markCard(isKnown){
+  if(!deck.length) return;
+  const w=deck[currentIdx];
+  if(isKnown){ learnedSet.add(w.en); showToast('✓ Отмечено как изученное'); }
+  else{ learnedSet.delete(w.en); showToast('✗ Отмечено как неизученное'); }
+  saveProgress(); renderCard(); updateStats();
+  if(tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred(isKnown?'success':'warning');
+  if(currentIdx<deck.length-1) setTimeout(()=>navigate(1),300);
+}
+
+function shuffleDeck(){
+  for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+  currentIdx=0; isFlipped=false;
+  document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard(); showToast('🔀 Перемешано!');
+}
+
+function toggleLang(){
+  showEnFirst=!showEnFirst;
+  document.getElementById('btn-lang').textContent=showEnFirst?'🔄 Рус → Англ':'🔄 Англ → Рус';
+  isFlipped=false; document.getElementById('card-wrapper').classList.remove('flipped');
+  renderCard();
+}
+
+function resetProgress(){
+  if(tg){ tg.showPopup({title:'Сбросить прогресс?',message:'Все изученные слова будут сброшены.',buttons:[{id:'ok',type:'destructive',text:'Сбросить'},{type:'cancel',text:'Отмена'}]},(b)=>{ if(b==='ok') doReset(); }); }
+  else { if(confirm('Сбросить прогресс?')) doReset(); }
+}
+function doReset(){ learnedSet.clear(); saveProgress(); buildDeck(); showToast('↺ Прогресс сброшен'); }
+
+function setCategory(cat){
+  currentCategory=cat;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
+  buildDeck();
+  if(currentMode==='quiz') initQuiz();
+  if(currentMode==='list') renderList();
+}
+
+function setMode(mode){
+  currentMode=mode;
+  document.querySelectorAll('.mode-tab').forEach((el,i)=>el.classList.toggle('active',['cards','quiz','list'][i]===mode));
+  ['card-scene','nav-row','mark-row','card-progress','card-controls'].forEach(id=>{ document.getElementById(id).style.display=mode==='cards'?'':'none'; });
+  document.getElementById('quiz-section').classList.toggle('active',mode==='quiz');
+  document.getElementById('list-section').classList.toggle('active',mode==='list');
+  if(mode==='quiz') initQuiz();
+  if(mode==='list') renderList();
+}
+
+function getQuizPool(){
+  if(currentCategory==='unknown') return WORDS.filter(w=>!learnedSet.has(w.en));
+  if(currentCategory!=='all') return WORDS.filter(w=>w.cat===currentCategory);
+  return WORDS;
+}
+function initQuiz(){ quizScore=0; quizTotal=0; document.getElementById('quiz-score').textContent='0'; document.getElementById('quiz-total').textContent='0'; nextQuiz(); }
+function nextQuiz(){
+  const pool=getQuizPool();
+  if(pool.length<4){ document.getElementById('quiz-word').textContent='Нужно минимум 4 слова'; document.getElementById('quiz-options').innerHTML=''; return; }
+  quizCurrent=pool[Math.floor(Math.random()*pool.length)]; quizAnswered=false;
+  document.getElementById('quiz-word').textContent=quizCurrent.en;
+  document.getElementById('quiz-direction').textContent='Выберите перевод';
+  const usedIdx=new Set([WORDS.indexOf(quizCurrent)]); const wrongs=[];
+  while(wrongs.length<3){ const i=Math.floor(Math.random()*WORDS.length); if(!usedIdx.has(i)){ usedIdx.add(i); wrongs.push(WORDS[i]); } }
+  const options=[...wrongs,quizCurrent].sort(()=>Math.random()-.5);
+  const container=document.getElementById('quiz-options'); container.innerHTML='';
+  options.forEach(opt=>{ const btn=document.createElement('button'); btn.className='quiz-option'; btn.textContent=opt.ru; btn.onclick=()=>checkQuiz(btn,opt); container.appendChild(btn); });
+}
+function checkQuiz(btn,selected){
+  if(quizAnswered) return; quizAnswered=true; quizTotal++;
+  document.querySelectorAll('.quiz-option').forEach(b=>b.disabled=true);
+  const correct=selected.en===quizCurrent.en;
+  if(correct){ btn.classList.add('correct'); quizScore++; showToast('✓ Правильно!'); learnedSet.add(quizCurrent.en); saveProgress(); updateStats(); if(tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success'); }
+  else{ btn.classList.add('wrong'); document.querySelectorAll('.quiz-option').forEach(b=>{ if(b.textContent===quizCurrent.ru) b.classList.add('correct'); }); showToast('✗ Неверно'); if(tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error'); }
+  document.getElementById('quiz-score').textContent=quizScore;
+  document.getElementById('quiz-total').textContent=quizTotal;
+}
+
+function renderList(filter=''){
+  let src=WORDS;
+  if(currentCategory==='unknown') src=WORDS.filter(w=>!learnedSet.has(w.en));
+  else if(currentCategory!=='all') src=WORDS.filter(w=>w.cat===currentCategory);
+  if(filter){ const q=filter.toLowerCase(); src=src.filter(w=>w.en.toLowerCase().includes(q)||w.ru.toLowerCase().includes(q)); }
+  const container=document.getElementById('word-list'); container.innerHTML='';
+  src.forEach(w=>{ const div=document.createElement('div'); div.className='word-list-item'+(learnedSet.has(w.en)?' known':''); div.innerHTML=`<div><div class="wli-en">${w.en}</div><div class="wli-ru">${w.ru}</div></div><span class="wli-cat">${CAT[w.cat]||w.cat}</span>`; container.appendChild(div); });
+}
+function filterList(){ renderList(document.getElementById('search-input').value); }
+
+function updateStats(){
+  const total=WORDS.length,known=learnedSet.size;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-known').textContent=known;
+  document.getElementById('stat-pct').textContent=Math.round((known/total)*100)+'%';
+  updateHeaderStats();
+}
+function updateHeaderStats(){
+  document.getElementById('hdr-total').textContent=WORDS.length;
+  document.getElementById('hdr-known').textContent=learnedSet.size;
+}
+
+let toastTimer;
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(currentMode==='cards'){
+    if(e.key==='ArrowRight') navigate(1);
+    if(e.key==='ArrowLeft') navigate(-1);
+    if(e.key===' '||e.key==='Enter'){ e.preventDefault(); flipCard(); }
+    if(e.key==='1') markCard(false);
+    if(e.key==='2') markCard(true);
+  }
+  if(currentMode==='quiz'&&(e.key==='Enter'||e.key==='ArrowRight')) nextQuiz();
+});
+</script>
+</body>
+</html>
